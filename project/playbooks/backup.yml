@@ -1,0 +1,7 @@
+# playbooks/backup.yml
+---
+- name: Configure backup infrastructure
+  hosts: all
+  become: yes
+  roles:
+    - role: backup

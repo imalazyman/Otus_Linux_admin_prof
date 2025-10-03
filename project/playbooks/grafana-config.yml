@@ -1,0 +1,6 @@
+---
+- name: Configure existing Grafana instance
+  hosts: monitoring_servers
+  become: yes
+  roles:
+    - grafana_config

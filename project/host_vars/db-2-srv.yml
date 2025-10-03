@@ -1,0 +1,3 @@
+# host_vars/db-2-srv.yml
+mariadb_server_id: 2
+mariadb_replication_role: "slave" 

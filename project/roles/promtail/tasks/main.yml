@@ -1,0 +1,68 @@
+# roles/promtail/tasks/main.yml
+---
+- name: Install Promtail for RedHat
+  block:
+    - name: Download Promtail
+      get_url:
+        url: "https://github.com/grafana/loki/releases/download/v3.5.5/promtail-linux-amd64.zip"
+        dest: /tmp/promtail.zip
+        mode: '0755'
+
+    - name: Unzip Promtail
+      unarchive:
+        src: /tmp/promtail.zip
+        dest: /usr/local/bin/
+        remote_src: yes
+        owner: root
+        group: root
+        mode: '0755'
+      register: unarchive_result  # Регистрируем результат распаковки, чтобы узнать имена файлов
+
+    - name: Create Promtail user and directories
+      user:
+        name: promtail
+        system: yes
+        shell: /sbin/nologin
+        home: /var/lib/promtail
+        create_home: yes
+        state: present
+
+    - name: Create config directory
+      file:
+        path: /etc/promtail
+        state: directory
+        owner: promtail
+        group: promtail
+        mode: '0755'
+
+  rescue:
+    - name: Clean up on failure
+      file:
+        path: /tmp/promtail.zip
+        state: absent
+
+- name: Deploy Promtail systemd service
+  template:
+    src: promtail.service.j2
+    dest: /etc/systemd/system/promtail.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart promtail
+
+- name: Deploy Promtail config
+  template:
+    src: promtail.yml.j2
+    dest: /etc/promtail/promtail.yml
+    owner: promtail
+    group: promtail
+    mode: '0644'
+  notify: restart promtail
+
+- name: Ensure Promtail service is enabled and started
+  systemd:
+    name: promtail
+    state: started
+    enabled: yes
+    daemon_reload: yes
+

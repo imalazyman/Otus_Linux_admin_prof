@@ -1,0 +1,171 @@
+# roles/wordpress/tasks/main.yml
+
+- name: Install Apache and PHP
+  package:
+    name:
+      - httpd
+      - mod_ssl
+      - php
+      - php-mysqlnd
+      - php-json
+      - php-curl
+      - php-gd
+      - php-mbstring
+      - php-xml
+      # - php-pecl-xmlrpc  # ← ИЗМЕНИТЬ: php-xmlrpc → php-pecl-xmlrpc
+      - php-zip
+    state: present
+
+- name: Allow Apache to connect to network databases (SELinux)
+  seboolean:
+    name: httpd_can_network_connect_db
+    state: yes
+    persistent: yes
+
+- name: Disable default SSL config to avoid certificate conflicts
+  file:
+    path: /etc/httpd/conf.d/ssl.conf
+    state: absent
+
+- name: Create SSL directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - /etc/ssl/private
+    - /etc/ssl/certs
+
+- name: Deploy SSL private key
+  copy:
+    src: files/ssl/web-srv.key
+    dest: /etc/ssl/private/web-srv.key
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Deploy SSL certificate
+  copy:
+    src: files/ssl/web-srv.crt
+    dest: /etc/ssl/certs/web-srv.crt
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Deploy CA certificate
+  copy:
+    src: files/ssl/company-ca.crt
+    dest: /etc/ssl/certs/company-ca.crt
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Create WordPress user and directory
+  user:
+    name: "{{ wordpress_user }}"
+    system: yes
+    create_home: yes
+    home: "{{ wordpress_dir }}"
+    state: present
+
+- name: Create WordPress directory
+  file:
+    path: "{{ wordpress_dir }}"
+    state: directory
+    owner: "{{ wordpress_user }}"
+    group: apache
+    mode: '0755'
+
+- name: Download WordPress
+  get_url:
+    url: "https://wordpress.org/wordpress-{{ wordpress_version }}.tar.gz"
+    dest: /tmp/wordpress.tar.gz
+    # checksum: "sha256:https://wordpress.org/wordpress-{{ wordpress_version }}.tar.gz.sha256"
+
+- name: Extract WordPress
+  unarchive:
+    src: /tmp/wordpress.tar.gz
+    dest: /tmp/
+    remote_src: yes
+    creates: /tmp/wordpress
+
+- name: Copy WordPress files to web directory
+  copy:
+    src: /tmp/wordpress/
+    dest: "{{ wordpress_dir }}"
+    owner: "{{ wordpress_user }}"
+    group: apache
+    mode: '0644'
+    remote_src: yes
+
+- name: Set correct permissions on WordPress directory
+  file:
+    path: "{{ wordpress_dir }}"
+    owner: "{{ wordpress_user }}"
+    group: apache
+    mode: '0755'
+    recurse: yes
+
+- name: Create WordPress uploads directory
+  file:
+    path: "{{ wordpress_dir }}/wp-content/uploads"
+    state: directory
+    owner: apache
+    group: apache
+    mode: '0755'
+
+
+- name: Configure Apache virtual host
+  template:
+    src: wordpress.conf.j2
+    dest: /etc/httpd/conf.d/wordpress.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: reload apache
+
+- name: Configure Apache SSL virtual host
+  template:
+    src: wordpress-ssl.conf.j2
+    dest: /etc/httpd/conf.d/wordpress-ssl.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: reload apache
+
+- name: Configure WordPress config
+  template:
+    src: wp-config.php.j2
+    dest: "{{ wordpress_dir }}/wp-config.php"
+    owner: "{{ wordpress_user }}"
+    group: apache
+    mode: '0644'
+
+- name: Configure firewall for HTTP/HTTPS
+  firewalld:
+    port: "{{ item }}/tcp"
+    permanent: yes
+    state: enabled
+  with_items:
+    - "{{ apache_listen_port }}"
+    - "{{ apache_ssl_port }}"
+  notify: reload firewall
+
+- name: Ensure Apache is started and enabled
+  systemd:
+    name: httpd
+    state: started
+    enabled: yes
+
+- name: Set SELinux context for WordPress directory
+  sefcontext:
+    target: "{{ wordpress_dir }}(/.*)?"
+    setype: httpd_sys_rw_content_t
+    state: present
+  register: selinux_changes
+
+- name: Apply SELinux changes
+  command: restorecon -Rv "{{ wordpress_dir }}"
+  when: selinux_changes is changed

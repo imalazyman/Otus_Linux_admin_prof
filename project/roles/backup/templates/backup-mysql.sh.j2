@@ -1,0 +1,14 @@
+#!/bin/bash
+# Резервное копирование сервера DB - запускается на сервере баз данных
+
+TIMESTAMP=$1
+BACKUP_DIR="/tmp/backup_${TIMESTAMP:-manual}"
+
+mkdir -p $BACKUP_DIR
+
+echo "Creating MySQL backup in $BACKUP_DIR"
+
+# Backup project_db
+mysqldump -u {{ db_backup_user }} -p"{{ db_backup_password }}" project_db | gzip > $BACKUP_DIR/project_db.sql.gz
+
+echo "MySQL backup completed: $BACKUP_DIR/project_db.sql.gz"

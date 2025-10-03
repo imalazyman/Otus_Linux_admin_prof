@@ -1,0 +1,18 @@
+# playbooks/restore.yml
+---
+- name: Execute system restore procedure
+  hosts: all
+  become: yes
+  vars:
+    restore_component: "full"
+    restore_timestamp: "latest" 
+    dry_run: false
+    mariadb_root_password: "Super_puper_123"
+  
+  roles:
+    - restore
+
+  tasks:
+    - name: Show restore completion status
+      debug:
+        msg: "Restore completed for component: {{ restore_component }}"

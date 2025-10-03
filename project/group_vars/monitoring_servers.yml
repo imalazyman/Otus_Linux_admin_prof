@@ -1,0 +1,14 @@
+# group_vars/monitoring_servers.yml
+
+# SMTP Configuration
+grafana_smtp_enabled: true
+grafana_smtp_host: "mail.vrgaz.ru:25"
+grafana_smtp_port: "25"  # или 25, 465 в зависимости от конфигурации
+grafana_smtp_user: "grafana-alerts@vrgaz.ru"
+grafana_smtp_password: "BRtjfqhpuTew7U8a"
+grafana_smtp_from_address: "grafana-alerts@vrgaz.ru"
+grafana_smtp_from_name: "Grafana Monitoring"
+
+# Emails for alerts
+alert_recipients:
+  - "dm.ignatenko@vrgaz.ru"

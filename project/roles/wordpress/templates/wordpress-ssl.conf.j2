@@ -1,0 +1,27 @@
+{# roles/wordpress/templates/wordpress-ssl.conf.j2 #}
+Listen 443
+<VirtualHost *:443>
+    ServerName {{ ssl_domain }}
+    DocumentRoot {{ wordpress_dir }}
+
+    # SSL Configuration
+    SSLEngine on
+    SSLCertificateFile /etc/ssl/certs/web-srv.crt
+    SSLCertificateKeyFile /etc/ssl/private/web-srv.key
+    SSLCACertificateFile /etc/ssl/certs/company-ca.crt
+
+    # Security headers
+    Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+    Header always set X-Content-Type-Options nosniff
+    Header always set X-Frame-Options DENY
+
+    # WordPress configuration
+    <Directory {{ wordpress_dir }}>
+        AllowOverride All
+        Require all granted
+        Options FollowSymLinks
+    </Directory>
+
+    ErrorLog /var/log/httpd/wordpress_ssl_error.log
+    CustomLog /var/log/httpd/wordpress_ssl_access.log combined
+</VirtualHost>

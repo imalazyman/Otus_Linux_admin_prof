@@ -1,0 +1,11 @@
+# roles/mariadb/handlers/main.yml
+---
+- name: restart mariadb
+  systemd:
+    name: mariadb
+    state: restarted
+
+- name: reload firewall
+  systemd:
+    name: firewalld
+    state: reloaded

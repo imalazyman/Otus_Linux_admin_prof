@@ -1,0 +1,42 @@
+#!/bin/bash
+# Основной скрипт резервного копирования - запускается на сервере управления
+
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+LOG_FILE="{{ backup_destination }}/logs/backup_$TIMESTAMP.log"
+
+exec > >(tee -a $LOG_FILE) 2>&1
+
+echo "=== Starting backup: $(date) ==="
+
+# Create timestamped directories
+mkdir -p {{ backup_destination }}/mysql/$TIMESTAMP
+mkdir -p {{ backup_destination }}/wordpress/$TIMESTAMP
+mkdir -p {{ backup_destination }}/monitoring/$TIMESTAMP
+
+# Backup MySQL from db-1-srv
+echo "=== Backing up MySQL ==="
+ssh vagrant@192.168.56.11 sudo /usr/local/bin/backup-mysql.sh $TIMESTAMP
+scp vagrant@192.168.56.11:/tmp/backup_$TIMESTAMP/*.gz {{ backup_destination }}/mysql/$TIMESTAMP/
+ssh vagrant@192.168.56.11 sudo rm -rf /tmp/backup_$TIMESTAMP
+
+# Backup WordPress from web-srv
+echo "=== Backing up WordPress ==="
+ssh vagrant@192.168.56.10 sudo /usr/local/bin/backup-wordpress.sh $TIMESTAMP
+scp vagrant@192.168.56.10:/tmp/backup_$TIMESTAMP/*.gz {{ backup_destination }}/wordpress/$TIMESTAMP/
+ssh vagrant@192.168.56.10 sudo rm -rf /tmp/backup_$TIMESTAMP
+
+# Backup Promtail from monitoring-srv
+echo "=== Backing up Promtail ==="
+ssh vagrant@192.168.56.13 sudo /usr/local/bin/backup-monitoring.sh $TIMESTAMP
+rsync -rv vagrant@192.168.56.13:/tmp/backup_$TIMESTAMP/ {{ backup_destination }}/monitoring/$TIMESTAMP/ 2>/dev/null || true
+# scp -r vagrant@192.168.56.13:/tmp/backup_$TIMESTAMP/* {{ backup_destination }}/monitoring/$TIMESTAMP/ 2>/dev/null || true
+ssh vagrant@192.168.56.13 sudo rm -rf /tmp/backup_$TIMESTAMP
+
+# Rotate old backups
+echo "=== Rotating old backups ==="
+find {{ backup_destination }}/wordpress -type d -mtime +{{ backup_retention_days }} -exec rm -rf {} \; 2>/dev/null
+find {{ backup_destination }}/mysql -type d -mtime +{{ backup_retention_days }} -exec rm -rf {} \; 2>/dev/null
+find {{ backup_destination }}/monitoring -type d -mtime +{{ backup_retention_days }} -exec rm -rf {} \; 2>/dev/null
+
+echo "=== Backup completed: $(date) ==="
+echo "Backups stored in: {{ backup_destination }}/$TIMESTAMP"

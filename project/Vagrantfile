@@ -1,0 +1,112 @@
+# Альтернативный поставщик
+# ENV['VAGRANT_SERVER_URL'] = 'https://vagrant.elab.pro'
+
+# дефолтное значение
+ENV['VAGRANT_SERVER_URL'] = 'https://app.vagrantup.com'
+
+Vagrant.configure("2") do |config|
+  # Общие настройки для всех машин
+  config.vm.box_check_update = false
+  # config.vbguest.no_install = true
+
+  # ===== WEB SERVER =====
+  config.vm.define "web" do |web|
+    web.vm.box = "generic/rocky9"
+    web.vm.hostname = "web-srv"
+    # Internal network - для управления
+    web.vm.network "private_network", ip: "192.168.56.10"
+    # DMZ network - для "публичного" доступа  
+    web.vm.network "private_network", ip: "192.168.57.10"
+    web.vm.provider "virtualbox" do |vb|
+      vb.memory = 1024
+      vb.cpus = 1
+      vb.name = "web-server"
+    end
+
+    web.vm.provision "shell", inline: <<-SHELL
+      dnf update -y
+    SHELL
+  end
+
+  # ===== First DATABASE SERVER =====
+  config.vm.define "db_1" do |db_1|
+    db_1.vm.box = "generic/rocky9"
+    db_1.vm.hostname = "db-1-srv"
+    db_1.vm.network "private_network", ip: "192.168.56.11"
+
+    db_1.vm.provider "virtualbox" do |vb|
+      vb.memory = 2048
+      vb.cpus = 2
+      vb.name = "db-1-server"
+    end
+
+    db_1.vm.provision "shell", inline: <<-SHELL
+      dnf update -y
+    SHELL
+  end
+
+
+    # ===== Second DATABASE SERVER =====
+  config.vm.define "db_2" do |db_2|
+    db_2.vm.box = "generic/rocky9"
+    db_2.vm.hostname = "db-2-srv"
+    db_2.vm.network "private_network", ip: "192.168.56.12"
+
+    db_2.vm.provider "virtualbox" do |vb|
+      vb.memory = 2048
+      vb.cpus = 2
+      vb.name = "db-2-server"
+    end
+
+    db_2.vm.provision "shell", inline: <<-SHELL
+      dnf update -y
+     SHELL
+  end
+
+
+  # ===== MONITORING SERVER =====
+  config.vm.define "mon" do |mon|
+    mon.vm.box = "generic/rocky9"
+    mon.vm.hostname = "mon-srv"
+    mon.vm.network "private_network", ip: "192.168.56.13"
+
+    mon.vm.provider "virtualbox" do |vb|
+      vb.memory = 2048
+      vb.cpus = 2
+      vb.name = "monitoring-server"
+    end
+
+    mon.vm.provision "shell", inline: <<-SHELL
+      dnf update -y
+    SHELL
+  end
+
+
+  # ===== ANSIBLE/BACKUP SERVER =====
+  config.vm.define "confm" do |confm|
+    confm.vm.box = "generic/rocky9"
+    confm.vm.hostname = "master-srv"
+    confm.vm.network "private_network", ip: "192.168.56.14"
+    
+    confm.vm.provider "virtualbox" do |vb|
+      vb.memory = 1024
+      vb.cpus = 1
+      vb.name = "ansible-server"
+    end
+      
+    confm.vm.provision "shell", inline: <<-SHELL
+      # Обновление системы и установка зависимостей
+      dnf update -y
+      dnf install epel-release -y
+      dnf install kernel-devel kernel-headers gcc make perl -y 
+      dnf install ansible git vim python3 python3-pip -y
+    SHELL
+    
+    confm.vm.synced_folder "./", "/home/vagrant/project", 
+      disabled: false, 
+      create: true,
+      owner: "vagrant",
+      group: "vagrant"
+
+  end
+end

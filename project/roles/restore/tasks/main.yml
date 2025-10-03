@@ -1,0 +1,14 @@
+#roles/restore/tasks/main.yml
+---
+- name: Include restore deployment tasks
+  include_tasks: deploy-scripts.yml
+
+- name: Include restore preparation tasks
+  include_tasks: prepare-restore.yml
+  when: "'backup_servers' in group_names"
+  
+- name: Include restore execution tasks
+  include_tasks: execute-restore.yml
+  when: "'backup_servers' in group_names"
+
+

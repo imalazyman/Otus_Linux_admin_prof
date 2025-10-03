@@ -1,0 +1,3 @@
+# host_vars/db-1-srv.yml
+mariadb_server_id: 1
+mariadb_replication_role: "master"

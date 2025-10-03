@@ -1,0 +1,104 @@
+# roles/mariadb-replication/tasks/main.yml
+---
+- name: Configure replication user on primary
+  community.mysql.mysql_user:
+    name: "{{ mariadb_replication_user }}"
+    host: "%"
+    password: "{{ mariadb_replication_password }}"
+    priv: "*.*:REPLICATION SLAVE"
+    state: present
+    login_user: root
+    login_password: "{{ mariadb_root_password }}"
+  when: inventory_hostname == primary_host
+  delegate_to: "{{ primary_host }}"
+
+- name: Get primary status
+  community.mysql.mysql_query:
+    login_user: root
+    login_password: "{{ mariadb_root_password }}"
+    query: "SHOW MASTER STATUS"
+  when: inventory_hostname == primary_host
+  register: primary_status
+  delegate_to: "{{ primary_host }}"
+  run_once: true
+
+- name: Set fact with primary status for cross-host access
+  set_fact:
+    primary_log_file: "{{ primary_status.query_result[0][0]['File'] }}"
+    primary_log_pos: "{{ primary_status.query_result[0][0]['Position'] }}"
+  when: 
+    - inventory_hostname == primary_host
+    - primary_status.query_result | length > 0
+  delegate_to: "{{ primary_host }}"
+  run_once: true
+
+- name: Debug primary status
+  debug:
+    msg: 
+      - "Primary File: {{ primary_log_file }}"
+      - "Primary Position: {{ primary_log_pos }}"
+  when: inventory_hostname == primary_host
+
+# === НОВЫЕ ЗАДАЧИ ДЛЯ РЕПЛИКИ ===
+- name: Check if replica is already running
+  community.mysql.mysql_replication:
+    mode: getreplica
+    login_user: root
+    login_password: "{{ mariadb_root_password }}"
+  when: inventory_hostname == replica_host
+  register: existing_replica_status
+  delegate_to: "{{ replica_host }}"
+  ignore_errors: yes
+
+- name: Stop existing replica if running
+  community.mysql.mysql_replication:
+    mode: stopreplica
+    login_user: root
+    login_password: "{{ mariadb_root_password }}"
+  when: 
+    - inventory_hostname == replica_host
+    - existing_replica_status is succeeded
+  delegate_to: "{{ replica_host }}"
+
+- name: Reset replica configuration
+  community.mysql.mysql_replication:
+    mode: resetreplica
+    login_user: root
+    login_password: "{{ mariadb_root_password }}"
+  when: inventory_hostname == replica_host
+  delegate_to: "{{ replica_host }}"
+
+- name: Configure replica replication
+  community.mysql.mysql_replication:
+    mode: changeprimary
+    primary_host: "{{ primary_host }}"
+    primary_user: "{{ mariadb_replication_user }}"
+    primary_password: "{{ mariadb_replication_password }}"
+    primary_log_file: "{{ hostvars[primary_host]['primary_log_file'] }}"
+    primary_log_pos: "{{ hostvars[primary_host]['primary_log_pos'] }}"
+    login_user: root
+    login_password: "{{ mariadb_root_password }}"
+  when: inventory_hostname == replica_host
+  delegate_to: "{{ replica_host }}"
+
+- name: Start replica replication
+  community.mysql.mysql_replication:
+    mode: startreplica
+    login_user: root
+    login_password: "{{ mariadb_root_password }}"
+  when: inventory_hostname == replica_host
+  delegate_to: "{{ replica_host }}"
+
+- name: Get replica status
+  community.mysql.mysql_replication:
+    mode: getreplica
+    login_user: root
+    login_password: "{{ mariadb_root_password }}"
+  when: inventory_hostname == replica_host
+  register: replica_status
+  delegate_to: "{{ replica_host }}"
+
+- name: Show replica status
+  debug:
+    msg: "Replica status: {{ replica_status }}"
+  when: inventory_hostname == replica_host

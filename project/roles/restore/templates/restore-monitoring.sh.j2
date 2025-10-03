@@ -1,0 +1,130 @@
+#!/bin/bash
+# Monitoring restore script - runs on monitoring servers
+
+BACKUP_FILE="$1"
+
+if [ -z "$BACKUP_FILE" ]; then
+    echo "Usage: $0 /path/to/backup.tar.gz"
+    exit 1
+fi
+
+if [ ! -f "$BACKUP_FILE" ]; then
+    echo "Backup file not found: $BACKUP_FILE"
+    exit 1
+fi
+
+echo "Restoring Monitoring stack from $BACKUP_FILE"
+
+# Останавливаем monitoring stack
+echo "Stopping monitoring stack..."
+cd /opt/monitoring
+docker-compose down
+
+# Создаем временную директорию для распаковки
+TEMP_DIR="/tmp/monitoring_restore_$$"
+mkdir -p "$TEMP_DIR"
+
+# Распаковываем во временную директорию
+echo "Extracting monitoring configurations..."
+tar -xzf "$BACKUP_FILE" -C "$TEMP_DIR"
+
+# Копируем файлы из временной директории в /opt/monitoring/
+echo "Copying files to /opt/monitoring/..."
+if [ -d "$TEMP_DIR/monitoring" ]; then
+    # Если архив содержит директорию monitoring/
+    sudo cp -rf "$TEMP_DIR/monitoring/"* /opt/monitoring/
+else
+    # Если архив содержит файлы напрямую
+    sudo cp -rf "$TEMP_DIR/"* /opt/monitoring/
+fi
+
+# Устанавливаем правильные права
+sudo chmod 644 /opt/monitoring/*.yml /opt/monitoring/*.yaml
+sudo chmod 755 /opt/monitoring/
+
+set_permissions() {
+    local volume_name="$1"
+    local volume_path="/var/lib/docker/volumes/${volume_name}/_data"
+    
+    echo "Setting permissions for $volume_name..."
+    
+    case "$volume_name" in
+        *prometheus*)
+            sudo chown -R 65534:65534 "$volume_path"
+            echo "Set owner to 65534:65534 for Prometheus"
+            ;;
+        *grafana*)
+            sudo chown -R 472:472 "$volume_path"
+            echo "Set owner to 472:472 for Grafana"
+            ;;
+        *loki*)
+            sudo chown -R 10001:10001 "$volume_path"
+            echo "Set owner to 10001:10001 for Loki"
+            ;;
+        *)
+            sudo chown -R root:root "$volume_path"
+            echo "Set owner to root:root for $volume_name"
+            ;;
+    esac
+    
+    sudo chmod -R 755 "$volume_path"
+}
+
+# Восстанавливаем Docker volumes если есть бэкап
+VOLUMES_BACKUP_DIR="/tmp/restore_volumes"
+if [ -d "$VOLUMES_BACKUP_DIR" ] && [ -n "$(ls -A "$VOLUMES_BACKUP_DIR" 2>/dev/null)" ]; then
+    echo "Restoring Docker volumes..."
+    
+    for volume_dir in "$VOLUMES_BACKUP_DIR"/*; do
+        if [ -d "$volume_dir" ]; then
+            volume_name=$(basename "$volume_dir")
+            echo "Restoring volume: $volume_name"
+            
+            # Останавливаем контейнеры использующие этот volume
+            echo "Stopping containers using $volume_name..."
+            docker ps --filter "volume=$volume_name" --quiet | xargs -r docker stop
+            
+            # Удаляем volume (данные будут потеряны!)
+            docker volume rm "$volume_name" 2>/dev/null || true
+            
+            # Создаем новый volume
+            docker volume create "$volume_name"
+            
+            # Копируем данные из бэкапа
+            echo "Copying data to volume..."
+            docker run --rm -v "$volume_name":/target -v "$volume_dir":/backup alpine \
+                sh -c "cp -ra /backup/* /target/ 2>/dev/null && echo 'Volume restore completed'"
+            
+            # Устанавливаем правильные права
+            set_permissions "$volume_name"
+        fi
+    done
+    echo "✅ Docker volumes restored"
+else
+    echo "⚠ No volumes backup found, skipping volumes restore"
+fi
+
+# Очищаем временную директорию
+sudo rm -rf "$TEMP_DIR"
+
+# Запускаем monitoring stack
+echo "Starting monitoring stack..."
+cd /opt/monitoring
+docker-compose up -d
+
+# Проверяем что контейнеры запустились
+echo "Checking container status..."
+sleep 10
+
+echo "Container status:"
+docker ps --filter "name=prometheus" --filter "name=grafana" --filter "name=loki" --filter "name=node-exporter"
+
+# Простая проверка по количеству
+RUNNING_COUNT=$(docker ps --filter "name=prometheus" --filter "name=grafana" --filter "name=loki" --filter "name=node-exporter" | grep -c Up)
+
+if [ "$RUNNING_COUNT" -eq 4 ]; then
+    echo "✅ Monitoring stack restored successfully - all containers running"
+else
+    echo "❌ Monitoring stack restore failed - only $RUNNING_COUNT/4 containers running"
+    exit 1
+fi

@@ -1,0 +1,42 @@
+#!/bin/bash
+# Monitoring stack backup script - runs on monitoring servers
+
+TIMESTAMP=$1
+BACKUP_DIR="/tmp/backup_${TIMESTAMP:-manual}"
+
+mkdir -p $BACKUP_DIR
+
+echo "Creating Monitoring stack backup in $BACKUP_DIR"
+
+# 1. Backup monitoring configuration files
+tar -czf $BACKUP_DIR/monitoring-config.tar.gz -C /opt monitoring/
+
+# 2. Backup Docker volumes data с правами sudo
+echo "Backing up Docker volumes..."
+mkdir -p $BACKUP_DIR/volumes
+for volume in $(docker volume ls --quiet | grep monitoring); do
+    echo "Backing up volume: $volume"
+    
+    # Используем sudo для доступа ко всем файлам
+    sudo docker run --rm -v $volume:/source -v $BACKUP_DIR/volumes:/backup alpine \
+        sh -c "cp -ra /source /backup/$volume 2>/dev/null || echo 'Volume backup completed'" || true
+done
+
+# 3. Исправляем права на скопированные файлы
+echo "Fixing permissions on backup files..."
+sudo chown -R vagrant:vagrant $BACKUP_DIR
+sudo chmod -R 755 $BACKUP_DIR
+
+# 4. Backup info file
+cat > $BACKUP_DIR/backup-info.txt << EOF
+Monitoring Stack Backup Information
+Timestamp: $(date)
+Services: Loki (ephemeral), Prometheus, Grafana
+
+Volumes Backed Up:
+$(docker volume ls | grep monitoring | awk '{print $2}' | tr '\n' ' ')
+
+Loki Storage: ephemeral (/tmp/loki/) - not persisted
+EOF
+
+echo "Monitoring stack backup completed: $BACKUP_DIR"

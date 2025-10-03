@@ -1,0 +1,10 @@
+# playbooks/vars.yml
+---
+# Имя пользователя, которого мы создадим на всех хостах
+# system_user: debugger
+
+# Настройки SSH-сервера
+ssh_settings:
+  permit_root_login: "no"          # Запрещаем логин под root
+  password_authentication: "no"    # Запрещаем аутентификацию по паролю
+  pubkey_authentication: "yes"     # Разрешаем аутентификацию по ключу

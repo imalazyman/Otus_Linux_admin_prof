@@ -1,0 +1,11 @@
+# roles/firewall/tasks/default.yml
+---
+- name: Open basic internal ports
+  firewalld:
+    zone: internal
+    port: "{{ item }}/tcp"
+    permanent: yes
+    state: enabled
+  loop:
+    - "22"    # SSH
+    - "9100"  # Node exporter

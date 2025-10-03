@@ -1,0 +1,40 @@
+- name: Create alert rules via API
+  uri:
+    url: "http://{{ inventory_hostname }}:3000/api/ruler/grafana/api/v1/rules/{{ grafana_folder_uid }}"
+    method: POST
+    body_format: json
+    headers:
+      Content-Type: "application/json"
+    body:
+      - name: "Infrastructure"
+        rules:
+          - alert: "DatabaseServerDown"
+            expr: 'up{job="databases"} == 0'
+            for: "1m"
+            labels:
+              severity: "critical"
+            annotations:
+              description: "Database server {{ '$labels.instance' }} is down"
+              summary: "Database server unavailable"
+          
+          - alert: "WebServerDown"  
+            expr: 'up{job="webservers"} == 0'
+            for: "1m"
+            labels:
+              severity: "critical"
+            annotations:
+              description: "Web server {{ '$labels.instance' }} is down"
+              summary: "Web server unavailable"
+              
+          - alert: "HostHighCPU"
+            expr: '100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80'
+            for: "5m"
+            labels:
+              severity: "warning"
+            annotations:
+              description: "CPU usage is above 80% on {{ '$labels.instance' }}"
+              summary: "High CPU usage detected"
+    status_code: 202
+    force_basic_auth: yes
+    url_username: "admin"
+    url_password: "{{ grafana_admin_password }}"

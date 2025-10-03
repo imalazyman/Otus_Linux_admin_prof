@@ -1,0 +1,117 @@
+# roles/monitoring/tasks/main.yml
+---
+- name: Install dependencies
+  package:
+    name:
+      - yum-utils
+    state: present
+
+- name: Add Docker repository
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/centos/docker-ce.repo
+    dest: /etc/yum.repos.d/docker-ce.repo
+
+- name: Install Docker packages
+  package:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+    state: present
+
+- name: Start and enable Docker service
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Add user to docker group (to run commands without sudo)
+  user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: yes
+
+
+- name: Install Docker Compose
+  get_url:
+    url: "https://github.com/docker/compose/releases/download/v2.39.3/docker-compose-{{ ansible_system | lower }}-{{ ansible_architecture }}"
+    dest: /usr/local/bin/docker-compose
+    mode: '0755'
+  register: download_docker_compose
+  until: download_docker_compose is succeeded
+  retries: 3
+  delay: 5
+
+
+- name: Create monitoring stack directory
+  file:
+    path: /opt/monitoring
+    state: directory
+    mode: '0755'
+
+- name: Deploy Docker Compose template
+  template:
+    src: docker-compose.yml.j2
+    dest: /opt/monitoring/docker-compose.yml
+    mode: '0644'
+  register: compose_config_changed  
+
+- name: Deploy Prometheus config
+  template:
+    src: prometheus.yml.j2
+    dest: /opt/monitoring/prometheus.yml
+    mode: '0644'
+  register: prometheus_config_changed 
+
+- name: Deploy Grafana datasources config
+  template:
+    src: grafana-datasources.yml.j2
+    dest: /opt/monitoring/grafana-datasources.yml
+    mode: '0644'
+  register: grafana_config_changed 
+
+- name: Deploy Loki config
+  template:
+    src: loki-config.yaml.j2
+    dest: /opt/monitoring/loki-config.yaml
+    mode: '0644'
+  register: loki_config_changed 
+
+# - name: Deploy alert rules
+#   template:
+#     src: alert-rules.yml.j2
+#     dest: /opt/monitoring/alert-rules.yml
+#     mode: '0644'
+#   register: alert_config_changed
+
+- name: Stop and remove old mysqld-exporter container if exists
+  shell: |
+    docker stop mysqld-exporter 2>/dev/null || true
+    docker rm mysqld-exporter 2>/dev/null || true
+  # ignore_errors: yes
+
+- name: Ensure monitoring stack is running with Docker Compose
+  command:
+    cmd: /usr/local/bin/docker-compose -f /opt/monitoring/docker-compose.yml up -d
+    chdir: /opt/monitoring
+  register: docker_compose_up_result
+  failed_when: 
+    - docker_compose_up_result.rc != 0
+    - "'is up to date' not in docker_compose_up_result.stderr"
+
+- name: Pull latest images for the stack (optional)
+  command:
+    cmd: /usr/local/bin/docker-compose -f /opt/monitoring/docker-compose.yml pull
+    chdir: /opt/monitoring
+  register: docker_compose_pull_result
+  failed_when: docker_compose_pull_result.rc != 0
+  changed_when: "'Downloaded' in docker_compose_pull_result.stdout"
+
+- name: Restart stack if needed to apply new configs
+  command:
+    cmd: /usr/local/bin/docker-compose -f /opt/monitoring/docker-compose.yml restart
+    chdir: /opt/monitoring
+  when: loki_config_changed is changed
+
+
+# - include_tasks: configure-alerting.yml

@@ -1,0 +1,4 @@
+# group_vars/backup_servers.yml
+
+# Настройки MariaDB
+mariadb_root_password: "Super_puper_123"

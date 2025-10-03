@@ -1,0 +1,14 @@
+#!/bin/bash
+# Резервное копирование web-данных - запускается на web-сервере 
+
+TIMESTAMP=$1
+BACKUP_DIR="/tmp/backup_${TIMESTAMP:-manual}"
+
+mkdir -p $BACKUP_DIR
+
+echo "Creating WordPress backup in $BACKUP_DIR"
+
+# Backup WordPress files
+tar -czf $BACKUP_DIR/wordpress.tar.gz {{ wordpress_dir }}
+
+echo "WordPress backup completed: $BACKUP_DIR/wordpress.tar.gz"

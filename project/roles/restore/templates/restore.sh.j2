@@ -1,0 +1,201 @@
+#!/bin/bash
+set -e
+
+echo "=== ENVIRONMENT DEBUG ===" > /tmp/restore_debug.log
+echo "User: $(whoami)" >> /tmp/restore_debug.log
+echo "PID: $$" >> /tmp/restore_debug.log
+echo "Parent PID: $PPID" >> /tmp/restore_debug.log
+echo "SSH_AUTH_SOCK: $SSH_AUTH_SOCK" >> /tmp/restore_debug.log
+echo "HOME: $HOME" >> /tmp/restore_debug.log
+echo "PATH: $PATH" >> /tmp/restore_debug.log
+ps -p $PPID -o command= >> /tmp/restore_debug.log
+echo "=== END DEBUG ===" >> /tmp/restore_debug.log
+
+BACKUP_PATH="$1"
+COMPONENT="$2"
+ACTUAL_TIMESTAMP="$3"
+LOG_FILE="/opt/backups/logs/restore.log"
+
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
+}
+
+restore_db() {
+    local backup_path="$1"
+    
+    log "=== Restoring MySQL Database ==="
+    
+    # Определяем правильный путь к бэкапу
+    if [ "$COMPONENT" = "full" ]; then
+        local db_backup_path="/opt/backups/mysql/$ACTUAL_TIMESTAMP/project_db.sql.gz"
+    else
+        local db_backup_path="$backup_path/project_db.sql.gz"
+    fi
+    
+    log "MySQL backup path: $db_backup_path"
+    
+    if [ ! -f "$db_backup_path" ]; then
+        log "❌ MySQL backup not found: $db_backup_path"
+        log "Available files in directory:"
+        ls -la "$(dirname "$db_backup_path")" 2>/dev/null | tee -a "$LOG_FILE" || log "Directory not found"
+        return 1
+    fi
+    
+    # Копируем бэкап на DB сервер
+    log "Copying backup to DB server (192.168.56.11)..."
+    scp "$db_backup_path" vagrant@192.168.56.11:/tmp/restore_db.sql.gz
+    
+    # Выполняем восстановление на DB сервере
+    log "Executing restore on DB server..."
+    ssh vagrant@192.168.56.11 "/usr/local/bin/restore-mysql.sh /tmp/restore_db.sql.gz"
+    
+    # Очищаем временные файлы
+    log "Cleaning up temporary files..."
+    ssh vagrant@192.168.56.11 "rm -f /tmp/restore_db.sql.gz"
+    
+    log "✅ MySQL database restored"
+}
+
+restore_web() {
+    local backup_path="$1"
+    
+    log "=== Restoring WordPress ==="
+    
+    if [ "$COMPONENT" = "full" ]; then
+        local web_backup_path="/opt/backups/wordpress/$ACTUAL_TIMESTAMP/wordpress.tar.gz"
+    else
+        local web_backup_path="$backup_path/wordpress.tar.gz"
+    fi
+    
+    log "WordPress backup path: $web_backup_path"
+    
+    if [ ! -f "$web_backup_path" ]; then
+        log "❌ WordPress backup not found: $web_backup_path"
+        log "Available files in directory:"
+        ls -la "$(dirname "$web_backup_path")" 2>/dev/null | tee -a "$LOG_FILE" || log "Directory not found"
+        return 1
+    fi
+    
+    # Копируем бэкап на WEB сервер
+    log "Copying backup to WEB server (192.168.56.10)..."
+    scp "$web_backup_path" vagrant@192.168.56.10:/tmp/restore_wordpress.tar.gz
+    
+    # Выполняем восстановление на WEB сервере
+    log "Executing restore on WEB server..."
+    ssh vagrant@192.168.56.10 "/usr/local/bin/restore-wordpress.sh /tmp/restore_wordpress.tar.gz"
+    
+    # Проверяем результат
+    local web_restore_result=$?
+    if [ $web_restore_result -eq 0 ]; then
+        log "✅ WordPress restore completed successfully"
+    else
+        log "❌ WordPress restore failed with exit code: $web_restore_result"
+    fi
+    
+    # Очищаем временные файлы
+    log "Cleaning up temporary files..."
+    ssh vagrant@192.168.56.10 "rm -f /tmp/restore_wordpress.tar.gz"
+}
+
+restore_monitoring() {
+    local backup_path="$1"
+    
+    log "=== Restoring Monitoring Stack ==="
+    
+    # Определяем правильный путь к бэкапу
+    if [ "$COMPONENT" = "full" ]; then
+        local monitoring_backup_path="/opt/backups/monitoring/$ACTUAL_TIMESTAMP/monitoring-config.tar.gz"
+        local monitoring_volumes_path="/opt/backups/monitoring/$ACTUAL_TIMESTAMP/volumes/"
+    else
+        local monitoring_backup_path="$backup_path/monitoring-config.tar.gz"
+        local monitoring_volumes_path="$backup_path/volumes/"
+    fi
+    
+    log "Monitoring backup path: $monitoring_backup_path"
+    log "Monitoring volumes path: $monitoring_volumes_path"
+    
+    if [ ! -f "$monitoring_backup_path" ]; then
+        log "❌ Monitoring backup not found: $monitoring_backup_path"
+        return 1
+    fi
+    
+    # Копируем бэкап на MONITORING сервер
+    log "Copying backup to MONITORING server (192.168.56.13)..."
+    scp "$monitoring_backup_path" vagrant@192.168.56.13:/tmp/restore_monitoring.tar.gz
+    
+    # Копируем volumes если есть
+    if [ -d "$monitoring_volumes_path" ] && [ -n "$(ls -A "$monitoring_volumes_path" 2>/dev/null)" ]; then
+        log "Copying volumes backup..."
+        scp -r "$monitoring_volumes_path" vagrant@192.168.56.13:/tmp/restore_volumes/
+    else
+        log "⚠ No volumes backup found or directory is empty"
+    fi
+    
+    # Копируем дополнительные файлы если есть
+    local compose_file_path=""
+    if [ "$COMPONENT" = "full" ]; then
+        compose_file_path="/opt/backups/monitoring/$ACTUAL_TIMESTAMP/docker-compose.yml"
+    else
+        compose_file_path="$backup_path/docker-compose.yml"
+    fi
+    
+    if [ -f "$compose_file_path" ]; then
+        log "Copying docker-compose.yml..."
+        scp "$compose_file_path" vagrant@192.168.56.13:/tmp/
+    fi
+    
+    # Выполняем восстановление на MONITORING сервере
+    log "Executing restore on MONITORING server..."
+    ssh vagrant@192.168.56.13 "/usr/local/bin/restore-monitoring.sh /tmp/restore_monitoring.tar.gz"
+    
+    # Очищаем временные файлы
+    log "Cleaning up temporary files..."
+    ssh vagrant@192.168.56.13 "sudo rm -rf /tmp/restore_monitoring.tar.gz /tmp/restore_volumes/ /tmp/docker-compose.yml"
+    
+    log "✅ Monitoring stack restored"
+}
+
+# Main execution
+if [ -z "$BACKUP_PATH" ] || [ -z "$COMPONENT" ]; then
+    echo "Usage: $0 /path/to/backup component [timestamp]"
+    echo "Components: db, web, monitoring, full"
+    echo "Examples:"
+    echo "  $0 /opt/backups/mysql/20250927_124738/ db"
+    echo "  $0 /opt/backups/wordpress/20250927_124738/ web"
+    echo "  $0 /opt/backups/monitoring/20250927_124738/ monitoring"
+    echo "  $0 /opt/backups/ full 20250927_124738"
+    exit 1
+fi
+
+log "=== Starting restore procedure ==="
+log "Backup path: $BACKUP_PATH"
+log "Component: $COMPONENT"
+log "Actual timestamp: $ACTUAL_TIMESTAMP"
+
+case "$COMPONENT" in
+    "db")
+        restore_db "$BACKUP_PATH"
+        ;;
+    "web")
+        restore_web "$BACKUP_PATH"
+        ;;
+    "monitoring")
+        restore_monitoring "$BACKUP_PATH"
+        ;;
+    "full")
+        if [ -z "$ACTUAL_TIMESTAMP" ]; then
+            log "❌ For full restore, timestamp is required"
+            exit 1
+        fi
+        log "=== Full System Restore ==="
+        restore_db "$BACKUP_PATH"
+        restore_web "$BACKUP_PATH"
+        restore_monitoring "$BACKUP_PATH"
+        ;;
+    *)
+        log "❌ Unsupported component: $COMPONENT"
+        exit 1
+        ;;
+esac
+
+log "✅ Restore completed successfully!"

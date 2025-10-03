@@ -1,0 +1,10 @@
+# playbooks/promtail.yml
+---
+- name: Install and configure Promtail on all servers
+  hosts: all  # Применяем ко ВСЕМ хостам
+  become: yes
+  vars:
+    # Предполагаем, что сервер Loki будет на хосте 'mon-srv'
+    loki_server_host: "{{ hostvars['mon-srv']['ansible_host'] | default('localhost') }}"
+  roles:
+    - role: promtail

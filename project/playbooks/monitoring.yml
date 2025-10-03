@@ -1,0 +1,7 @@
+# playbooks/monitoring.yml
+---
+- name: Setup Monitoring server (Install Docker)
+  hosts: monitoring_servers  # Группа из вашего inventory.yml
+  become: yes
+  roles:
+    - role: monitoring

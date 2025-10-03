@@ -1,0 +1,15 @@
+{# roles/promtail/templates/promtail.service.j2 #}
+[Unit]
+Description=Promtail service
+After=network.target
+
+[Service]
+Type=simple
+User=promtail
+Group=promtail
+ExecStart=/usr/local/bin/promtail-linux-amd64 -config.file=/etc/promtail/promtail.yml
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

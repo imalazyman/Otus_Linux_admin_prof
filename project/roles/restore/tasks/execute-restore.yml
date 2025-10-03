@@ -1,0 +1,63 @@
+
+#\roles\restore\tasks\execute-restore.yml
+---
+- name: Debug actual execution context
+  shell: |
+    echo "Actual user: $(whoami)"
+    echo "Effective user: $(id -un)"
+    echo "SSH_AUTH_SOCK: $SSH_AUTH_SOCK"
+    echo "HOME: $HOME"
+    ls -la ~/.ssh/ || echo "No .ssh directory"
+  register: context_debug
+
+- name: Show context debug
+  debug:
+    var: context_debug.stdout_lines
+
+- name: Execute restore procedure
+  shell: |
+    /usr/local/bin/restore.sh "{{ backup_path }}" "{{ restore_component }}" "{{ actual_timestamp }}"
+  args:
+    executable: /bin/bash
+  # become: no 
+  register: restore_result
+  changed_when: 
+    - "'Restore completed' in restore_result.stdout"
+    - not dry_run | bool
+  tags:
+    - restore-execute
+    - main
+
+# - name: Execute restore procedure with command module
+#   command:
+#     cmd: /usr/local/bin/restore.sh "{{ backup_path }}" "{{ restore_component }}" "{{ actual_timestamp }}"
+#   environment:
+#     PATH: "{{ ansible_env.PATH }}"
+#     HOME: "{{ ansible_env.HOME }}"
+#   register: restore_result
+#   changed_when: 
+#     - "'Restore completed' in restore_result.stdout"
+#     - not dry_run | bool
+
+- name: Check debug log
+  shell: cat /tmp/restore_debug.log
+  register: debug_log
+
+- name: Show debug log
+  debug:
+    var: debug_log.stdout
+
+- name: Show restore output
+  debug:
+    msg: "{{ restore_result.stdout_lines }}"
+  tags:
+    - restore-execute
+    - output
+
+- name: Show restore errors if any
+  debug:
+    msg: "{{ restore_result.stderr_lines }}"
+  when: restore_result.stderr != ""
+  tags:
+    - restore-execute
+    - errors

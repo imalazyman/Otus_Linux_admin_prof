@@ -1,0 +1,91 @@
+# roles/backup/tasks/main.yml
+# Подготовка и настройка инфраструктуры для создания регулярных резервных копий 
+---
+- name: Create backup directory structure on Ansible server
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: vagrant
+    group: vagrant
+    mode: '0755'
+  with_items:
+    - "{{ backup_destination }}"
+    - "{{ backup_destination }}/mysql"
+    - "{{ backup_destination }}/wordpress"
+    - "{{ backup_destination }}/logs"
+    - "{{ backup_destination }}/monitoring"
+  when: "'backup_servers' in group_names"
+
+- name: Create database backup script on database servers
+  template:
+    src: backup-mysql.sh.j2
+    dest: "/usr/local/bin/backup-mysql.sh"
+    mode: '0755'
+  when: "'databases' in group_names"
+
+- name: Create WordPress backup script on web servers
+  template:
+    src: backup-wordpress.sh.j2
+    dest: "/usr/local/bin/backup-wordpress.sh"
+    mode: '0755'
+  when: "'webservers' in group_names"
+
+- name: Create Promtail backup script on monitoring servers
+  template:
+    src: backup-monitoring.sh.j2
+    dest: "/usr/local/bin/backup-monitoring.sh"
+    mode: '0755'
+  when: "'monitoring_servers' in group_names"
+
+- name: Create backup script on Ansible server
+  template:
+    src: run-backup.sh.j2
+    dest: "/usr/local/bin/run-backup.sh"
+    mode: '0755'
+    owner: vagrant
+    group: vagrant
+  when: "'backup_servers' in group_names"
+
+- name: Schedule automatic backups with cron
+  cron:
+    name: "Automated system backup"
+    job: "/usr/local/bin/run-backup.sh >> {{ backup_destination }}/logs/backup.log 2>&1"
+    minute: "0"
+    hour: "2"
+    user: vagrant
+  when: "'backup_servers' in group_names"
+
+# - name: Ensure SSH directory exists on backup server
+#   file:
+#     path: /home/vagrant/.ssh
+#     state: directory
+#     owner: vagrant
+#     group: vagrant
+#     mode: '0700'
+#   when: "'backup_servers' in group_names"
+
+# - name: Copy SSH private key to backup server
+#   copy:
+#     src: "~/.ssh/id_ed25519"
+#     dest: "/home/vagrant/.ssh/id_ed25519"
+#     owner: vagrant
+#     group: vagrant
+#     mode: '0600'
+#   when: "'backup_servers' in group_names"
+
+# - name: Copy SSH public key to backup server
+#   copy:
+#     src: "~/.ssh/id_ed25519.pub"
+#     dest: "/home/vagrant/.ssh/id_ed25519.pub"
+#     owner: vagrant
+#     group: vagrant
+#     mode: '0644'
+#   when: "'backup_servers' in group_names"
+
+# - name: Add SSH public keys to authorized_keys on target servers
+#   authorized_key:
+#     user: vagrant
+#     state: present
+#     key: "{{ lookup('file', '~/.ssh/id_ed25519.pub') }}"
+#   delegate_to: "{{ item }}"
+#   with_items: "{{ groups['databases'] + groups['webservers'] }}"

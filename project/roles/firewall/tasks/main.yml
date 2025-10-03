@@ -1,0 +1,24 @@
+# roles/firewall/tasks/main.yml
+---
+- name: Ensure firewalld is installed and running
+  package:
+    name: firewalld
+    state: present
+
+- name: Start and enable firewalld
+  systemd:
+    name: firewalld
+    state: started
+    enabled: yes
+
+- name: Configure default firewall zones
+  firewalld:
+    zone: "{{ item.zone }}"
+    source: "{{ item.source }}"
+    permanent: yes
+    state: enabled
+  loop: "{{ firewall_zones }}"
+  when: firewall_zones is defined
+
+- name: Load server-specific firewall rules
+  include_tasks: "{{ server_role | default('default') }}.yml"

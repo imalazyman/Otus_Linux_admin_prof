@@ -1,0 +1,27 @@
+# group_vars/webservers.yml
+---
+# Настройки веб-сервера
+web_server: apache
+apache_listen_port: 80
+apache_ssl_port: 443
+
+# Настройки WordPress
+wordpress_version: "6.5"
+wordpress_dir: "/var/www/wordpress"
+wordpress_user: "wordpress"
+wordpress_db_name: "project_db"
+wordpress_db_user: "debugger"
+wordpress_db_password: "Super_puper_123"
+wordpress_db_host: "db-1-srv"
+wordpress_db_fallback_host: "db-2-srv"  # резервный хост
+wordpress_table_prefix: "wp_"
+
+# Настройки сайта
+wordpress_site_title: "My WordPress Site"
+wordpress_admin_user: "admin"
+wordpress_admin_password: "Qwerty_123"
+wordpress_admin_email: "admin@example.com"
+
+# Настройки SSL (опционально)
+ssl_domain: "web-srv.internal"
+ssl_email: "admin@web-srv.internal"

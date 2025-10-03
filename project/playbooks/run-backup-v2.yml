@@ -1,0 +1,85 @@
+# playbooks/run-backup.yml
+---
+- name: Create and fetch backups using ansible
+  hosts: backup_servers
+  become: yes
+  # connection: local
+  vars:
+    backup_timestamp: "{{ ansible_date_time.epoch }}"
+  tasks:
+    - name: Ensure backup directories exist on backup server
+      file:
+        path: "{{ backup_destination }}/{{ item }}/{{ backup_timestamp }}"
+        state: directory
+        owner: vagrant
+        group: vagrant
+        mode: '0755'
+      delegate_to: "{{ groups['backup_servers'][0] }}"
+      with_items:
+        - "mysql"
+        - "wordpress"
+
+    - name: Create MySQL backup on db-1-srv
+      delegate_to: "db-1-srv"
+      command: /usr/local/bin/backup-mysql.sh "{{ backup_timestamp }}"
+      become: yes
+
+    - name: Fetch MySQL backup from db-1-srv to backup server
+      fetch:
+        src: "/tmp/backup_{{ backup_timestamp }}/project_db.sql.gz"
+        dest: "{{ backup_destination }}/mysql/{{ backup_timestamp }}/"
+        flat: yes
+      delegate_to: "db-1-srv"
+
+    - name: Create WordPress backup on web-srv
+      delegate_to: "web-srv"
+      command: /usr/local/bin/backup-wordpress.sh "{{ backup_timestamp }}"
+      become: yes
+
+    - name: Fetch WordPress backup from web-srv to backup server
+      fetch:
+        src: "/tmp/backup_{{ backup_timestamp }}/wordpress.tar.gz"
+        dest: "{{ backup_destination }}/wordpress/{{ backup_timestamp }}/"
+        flat: yes
+      delegate_to: "web-srv"
+
+    # - name: Cleanup temporary files on db-1-srv
+    #   delegate_to: "db-1-srv"
+    #   file:
+    #     path: "/tmp/backup_{{ backup_timestamp }}"
+    #     state: absent
+    #   become: yes
+
+    # - name: Cleanup temporary files on web-srv
+    #   delegate_to: "web-srv"
+    #   file:
+    #     path: "/tmp/backup_{{ backup_timestamp }}"
+    #     state: absent
+    #   become: yes
+
+    - name: Rotate old backups on backup server
+      delegate_to: "{{ groups['backup_servers'][0] }}"
+      find:
+        paths: "{{ backup_destination }}"
+        patterns: "*"
+        file_type: directory
+        age: "{{ backup_retention_days }}d"
+      register: old_backups
+
+    - name: Remove old backups
+      delegate_to: "{{ groups['backup_servers'][0] }}"
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      with_items: "{{ old_backups.files }}"
+      when: old_backups.matched > 0
+
+    - name: Show backup summary
+      debug:
+        msg: |
+          ✅ Backup completed successfully!
+          📅 Timestamp: {{ backup_timestamp }}
+          📁 Location: {{ backup_destination }} on {{ groups['backup_servers'][0] }}
+          🗄️ MySQL: {{ backup_destination }}/mysql/{{ backup_timestamp }}/project_db.sql.gz
+          🌐 WordPress: {{ backup_destination }}/wordpress/{{ backup_timestamp }}/wordpress.tar.gz
+      delegate_to: "{{ groups['backup_servers'][0] }}"

@@ -1,0 +1,13 @@
+# playbooks/mariadb-replication.yml
+---
+- name: Setup MariaDB replication
+  hosts: databases
+  become: yes
+  collections:
+    - community.mysql
+  vars:
+    primary_host: "db-1-srv"
+    replica_host: "db-2-srv"
+  roles: 
+    - mariadb-replication
+    

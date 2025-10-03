@@ -1,0 +1,9 @@
+# roles/firewall/vars/main.yml
+---
+firewall_zones:
+  - zone: internal
+    source: 192.168.56.0/24
+  - zone: dmz
+    source: 192.168.57.0/24
+  - zone: public
+    source: 0.0.0.0/0

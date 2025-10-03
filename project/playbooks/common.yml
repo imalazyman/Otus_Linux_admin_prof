@@ -1,0 +1,10 @@
+# playbooks/common.yml
+---
+- name: Apply common role to all servers
+  hosts: all
+  become: yes
+  roles:
+    - common
+    - firewall
+  vars:
+    server_role: "{{ server_type | default('default') }}"

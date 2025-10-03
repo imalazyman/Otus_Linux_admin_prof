@@ -1,0 +1,36 @@
+// roles/wordpress/templates/wp-config.php.j2
+
+<?php
+/**
+ * WordPress configuration file
+ */
+
+// ** Database settings ** //
+define('DB_NAME', '{{ wordpress_db_name }}');
+define('DB_USER', '{{ wordpress_db_user }}');
+define('DB_PASSWORD', '{{ wordpress_db_password }}');
+define('DB_HOST', '{{ wordpress_db_host }}');
+define('DB_CHARSET', 'utf8mb4');
+define('DB_COLLATE', '');
+
+// ** Authentication unique keys and salts ** //
+// You can generate these at: https://api.wordpress.org/secret-key/1.1/salt/
+define('AUTH_KEY',         '{{ ansible_date_time.epoch | hash('sha256') | truncate(64) }}');
+define('SECURE_AUTH_KEY',  '{{ ansible_date_time.epoch | hash('sha256') | truncate(64) }}');
+define('LOGGED_IN_KEY',    '{{ ansible_date_time.epoch | hash('sha256') | truncate(64) }}');
+define('NONCE_KEY',        '{{ ansible_date_time.epoch | hash('sha256') | truncate(64) }}');
+define('AUTH_SALT',        '{{ ansible_date_time.epoch | hash('sha256') | truncate(64) }}');
+define('SECURE_AUTH_SALT', '{{ ansible_date_time.epoch | hash('sha256') | truncate(64) }}');
+define('LOGGED_IN_SALT',   '{{ ansible_date_time.epoch | hash('sha256') | truncate(64) }}');
+define('NONCE_SALT',       '{{ ansible_date_time.epoch | hash('sha256') | truncate(64) }}');
+
+$table_prefix = '{{ wordpress_table_prefix }}';
+
+define('WP_DEBUG', false);
+
+if (!defined('ABSPATH')) {
+    define('ABSPATH', __DIR__ . '/');
+}
+
+require_once ABSPATH . 'wp-settings.php';
+?>

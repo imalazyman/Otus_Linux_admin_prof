@@ -1,0 +1,22 @@
+# group_vars/databases.yml
+---
+# Настройки MariaDB
+mariadb_root_password: "Super_puper_123"
+mariadb_databases:
+  - name: project_db
+    encoding: utf8mb4
+    collation: utf8mb4_unicode_ci
+mariadb_users:
+  - name: debugger
+    host: "%"
+    password: "Super_puper_123" 
+    priv: "project_db.*:ALL"
+  - name: backup_user  # ← ДОБАВИТЬ пользователя для бэкапов
+    host: "%"
+    password: "super_password_123"
+    priv: "*.*:SELECT,SHOW VIEW,TRIGGER,LOCK TABLES,RELOAD,PROCESS,EVENT"
+mariadb_bind_address: "0.0.0.0"
+mariadb_port: 3306
+mariadb_replication_user: "repl_user"
+mariadb_replication_password: "Super_puper_321"
+

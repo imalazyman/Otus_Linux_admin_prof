@@ -1,0 +1,36 @@
+#!/bin/bash
+# WordPress restore script - runs on web servers
+
+BACKUP_FILE="$1"
+
+if [ -z "$BACKUP_FILE" ]; then
+    echo "Usage: $0 /path/to/backup.tar.gz"
+    exit 1
+fi
+
+if [ ! -f "$BACKUP_FILE" ]; then
+    echo "Backup file not found: $BACKUP_FILE"
+    exit 1
+fi
+
+echo "Restoring WordPress from $BACKUP_FILE"
+
+# Stop web server temporarily
+sudo systemctl stop httpd
+
+# Restore WordPress files
+tar -xzf "$BACKUP_FILE" -C / --overwrite
+
+# Set proper permissions
+sudo chown -R apache:apache /var/www/wordpress/
+sudo chmod -R 755 /var/www/wordpress/
+
+# Start web server
+sudo systemctl start httpd
+
+if systemctl is-active httpd >/dev/null 2>&1; then
+    echo "✅ WordPress restored successfully - Apache is running"
+else
+    echo "⚠ WordPress restored but Apache failed to start"
+    exit 1
+fi

@@ -1,0 +1,110 @@
+# roles/mariadb/tasks/main.yml
+- name: Install MariaDB server and client
+  package:
+    name:
+      - mariadb-server
+      - mariadb
+      - python3-PyMySQL
+    state: present
+
+- name: Create necessary directories for MariaDB
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: mysql
+    group: mysql
+    mode: '0755'
+  with_items:
+    - /var/log/mysql
+    - /var/run/mysql
+
+# - name: Debug variables for server-id
+#   debug:
+#     msg: |
+#       Hostname: {{ ansible_hostname }}
+#       Inventory hostname: {{ inventory_hostname }} 
+#       Is db-1-srv: {{ ansible_hostname == 'db-1-srv' }}
+#       Server ID: {{ mariadb_server_id | default('NOT_SET') }}
+
+- name: Update MariaDB configuration
+  template:
+    src: my.cnf.j2
+    dest: /etc/my.cnf.d/server.cnf
+    owner: root
+    group: mysql
+    mode: 0644
+  notify: restart mariadb
+
+- name: Ensure MariaDB service is started and enabled
+  systemd:
+    name: mariadb
+    state: started
+    enabled: yes
+
+- name: Check if MySQL socket exists
+  stat:
+    path: /var/lib/mysql/mysql.sock
+  register: mysql_socket
+
+- name: Debug socket existence
+  debug:
+    msg: "MySQL socket exists: {{ mysql_socket.stat.exists }}"
+
+# - name: Set root password and enable password authentication
+#   mysql_user:
+#     name: root
+#     host: localhost
+#     password: "{{ mariadb_root_password }}"
+#     check_implicit_admin: yes
+#     login_unix_socket: /var/lib/mysql/mysql.sock
+
+- name: Check if root password is already set
+  command: mysql -u root -p"{{ mariadb_root_password }}" -e "SELECT 1" 
+  register: root_password_check
+  changed_when: false
+  ignore_errors: yes
+  failed_when: false
+
+- name: Set root password if not set
+  command: mysqladmin -u root -S /var/lib/mysql/mysql.sock password "{{ mariadb_root_password }}"
+  when: root_password_check.rc != 0
+
+
+- name: Create application database
+  mysql_db:
+    name: "{{ item.name }}"
+    encoding: "{{ item.encoding | default('utf8') }}"
+    collation: "{{ item.collation | default('utf8_general_ci') }}"
+    state: present
+    login_user: root
+    login_password: "{{ mariadb_root_password }}"
+  with_items: "{{ mariadb_databases }}"
+
+- name: Create application user
+  mysql_user:
+    name: "{{ item.name }}"
+    host: "{{ item.host }}"
+    password: "{{ item.password }}"
+    priv: "{{ item.priv }}"
+    state: present
+    login_user: root
+    login_password: "{{ mariadb_root_password }}"
+  with_items: "{{ mariadb_users }}"
+  notify: restart mariadb
+
+- name: Create exporter user for monitoring
+  mysql_user:
+    name: exporter
+    password: "{{ mariadb_exporter_password }}"
+    host: "%"
+    priv: "*.*:SELECT,PROCESS,REPLICATION CLIENT"
+    state: present
+    login_user: root
+    login_password: "{{ mariadb_root_password }}"
+
+- name: Configure firewall for MariaDB
+  firewalld:
+    port: "{{ mariadb_port }}/tcp"
+    permanent: yes
+    state: enabled
+  notify: reload firewall

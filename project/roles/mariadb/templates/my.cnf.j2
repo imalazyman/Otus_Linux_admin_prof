@@ -1,0 +1,22 @@
+{# roles/mariadb/templates/my.cnf.j2 #}
+[server]
+bind-address = {{ mariadb_bind_address }}
+port = {{ mariadb_port }}
+datadir = /var/lib/mysql
+socket = /var/lib/mysql/mysql.sock
+
+# Настройки репликации
+{# Для db-1-srv: server-id=1, для остальных: server-id=2 #}
+{# server-id = {% if ansible_hostname == 'db-1-srv' %}1{% else %}2{% endif %} #}
+server-id = {{ mariadb_server_id }}
+log_bin = /var/log/mysql/mysql-bin.log
+expire_logs_days = 10
+max_binlog_size = 100M
+
+[client]
+port = {{ mariadb_port }}
+socket = /var/lib/mysql/mysql.sock
+
+[mysqld_safe]
+log-error = /var/log/mysql/mysqld.log
+pid-file = /var/run/mysql/mysqld.pid

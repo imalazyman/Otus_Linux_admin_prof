@@ -1,0 +1,58 @@
+# playbooks/bootstrap.yml
+---
+- name: Bootstrap and secure all servers  # Имя плейбука
+  hosts: all                              # Применяем ко ВСЕМ хостам из inventory
+  vars_files:                             # Подключаем наш файл с переменными
+    - vars.yml
+  become: yes                             # Выполнять задачи с повышением прав (sudo)
+  tasks:                                  # Начинаем блок задач
+
+  # - name: Create the system user '{{ system_user }}'  # Создаем пользователя
+  #   user:
+  #     name: "{{ system_user }}"
+  #     state: present
+  #     create_home: yes
+  #     shell: /bin/bash
+
+  # - name: Set up authorized key for the user  # Копируем наш публичный ключ для этого пользователя
+  #   ansible.posix.authorized_key:
+  #     user: "{{ system_user }}"
+  #     state: present
+  #     key: "{{ lookup('file', '~/.ssh/id_ed25519.pub') }}" # "Смотри" содержимое файла с ключом
+
+  # - name: Ensure the user is in the sudo group  # Добавляем пользователя в группу wheel (для sudo)
+  #   user:
+  #     name: "{{ system_user }}"
+  #     groups: wheel
+  #     append: yes
+
+  - name: Ensure sudo group has passwordless sudo  # Настраиваем sudo без пароля для группы wheel
+    lineinfile:
+      path: /etc/sudoers.d/99-wheel-nopasswd
+      line: '%wheel ALL=(ALL) NOPASSWD: ALL'
+      state: present
+      create: yes
+      validate: 'visudo -cf %s'  # Валидируем файл перед сохранением, чтобы не сломать sudo!
+
+  - name: Harden SSH configuration  # Применяем настройки безопасности для SSH
+    lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: "^{{ item.key }} "
+      line: "{{ item.key }} {{ item.value }}"
+      state: present
+    with_items:  # Цикл по словарю из переменных
+      - { key: "PermitRootLogin", value: "{{ ssh_settings.permit_root_login }}" }
+      - { key: "PasswordAuthentication", value: "{{ ssh_settings.password_authentication }}" }
+      - { key: "PubkeyAuthentication", value: "{{ ssh_settings.pubkey_authentication }}" }
+    notify: Restart SSH  # Если задание изменило файл, запускаем обработчик 'Restart SSH'
+
+  - name: Update all packages to the latest version  # Обновляем весь системный софт
+    package:
+      name: "*"
+      state: latest
+
+  handlers:  # Обработчики запускаются только если были уведомления (notify)
+  - name: Restart SSH
+    service:
+      name: sshd
+      state: restarted

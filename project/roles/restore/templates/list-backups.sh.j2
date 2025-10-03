@@ -1,0 +1,28 @@
+#!/bin/bash
+# List available backups grouped by component
+
+echo "Available Backups:"
+echo "=================="
+
+# Для каждого компонента
+for component in mysql wordpress monitoring; do
+    if [ -d "/opt/backups/$component" ]; then
+        echo ""
+        echo "=== $component ==="
+        
+        # Находим все timestamp директории для этого компонента (новые сверху)
+        find "/opt/backups/$component" -maxdepth 1 -type d -name "2*" | sort -r | while read dir; do
+            timestamp=$(basename "$dir")
+            echo "/opt/backups/$component/$timestamp"
+            
+            # Файлы в этой директории
+            find "$dir" -maxdepth 1 -type f \( -name "*.gz" -o -name "backup-info.txt" \) | while read file; do
+                size=$(du -h "$file" | cut -f1)
+                echo "✔ ${YELLOW}$(basename $file)${NC}"
+            done
+        done
+    fi
+done
+
+echo ""
+echo "Total backups: $(find /opt/backups -type d -name "2*" | wc -l)"

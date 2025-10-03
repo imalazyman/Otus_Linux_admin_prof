@@ -1,0 +1,43 @@
+# inventory.yml
+all:
+  vars:
+    ansible_user: vagrant
+  children:
+    internal_network:
+      hosts:
+        db-1-srv:
+          ansible_host: 192.168.56.11
+          server_type: "database"
+        db-2-srv:
+          ansible_host: 192.168.56.12  
+          server_type: "database"
+        mon-srv:
+          ansible_host: 192.168.56.13
+          server_type: "default"
+        ansible-srv:
+          ansible_host: 192.168.56.14
+          server_type: "default"
+    
+    dmz_network:
+      hosts:
+        web-srv:
+          ansible_host: 192.168.57.10  # DMZ IP
+          server_type: "webserver"
+
+    # Группы по ролям
+    webservers:
+      hosts:
+        web-srv:
+    monitoring_servers:
+      hosts:
+        mon-srv:
+    databases:
+      hosts:
+        db-1-srv:
+        db-2-srv:
+    backup_servers:
+      hosts:
+        ansible-srv:
+    ansible_servers:
+      hosts:
+        ansible-srv:

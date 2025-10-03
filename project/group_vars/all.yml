@@ -1,0 +1,18 @@
+# group_vars/all.yml
+---
+# Хранить бэкапы на Ansible-сервере
+backup_destination: "/opt/backups"
+backup_server: "192.168.56.14"  # ansible-srv
+backup_retention_days: 7
+
+# Настройки для бэкапа БД
+db_backup_host: "192.168.56.11"  # db-1-srv
+db_backup_user: "backup_user"
+db_backup_password: "super_password_123"
+
+# Настройки для бэкапа WordPress
+wordpress_backup_host: "192.168.56.10"  # web-srv
+wordpress_backup_dir: "/var/www/wordpress"
+
+# Настройки для MySQL Exporter
+mariadb_exporter_password: "Super_puper_321"

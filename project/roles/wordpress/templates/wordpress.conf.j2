@@ -1,0 +1,11 @@
+{# roles/wordpress/templates/wordpress.conf.j2 #}
+<VirtualHost *:80>
+    ServerName {{ ssl_domain }}
+    DocumentRoot {{ wordpress_dir }}
+
+    # Redirect all HTTP traffic to HTTPS
+    Redirect permanent / https://{{ ssl_domain }}/
+
+    ErrorLog /var/log/httpd/wordpress_error.log
+    CustomLog /var/log/httpd/wordpress_access.log combined
+</VirtualHost>

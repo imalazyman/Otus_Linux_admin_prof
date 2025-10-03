@@ -1,0 +1,103 @@
+# roles/monitoring/tasks/configure-alerting.yml
+
+# - name: Wait for Grafana to be ready
+#   uri:
+#     url: http://localhost:3000/api/health
+#     method: GET
+#     status_code: 200
+#   register: grafana_health
+#   retries: 10
+#   delay: 5
+#   until: grafana_health.status == 200
+
+# - name: Get all existing API tokens
+#   uri:
+#     url: http://localhost:3000/api/auth/keys
+#     method: GET
+#     force_basic_auth: yes
+#     url_username: admin
+#     url_password: "admin123"
+#     status_code: 200
+#   register: existing_tokens
+
+# - name: Delete existing Ansible Provisioning token
+#   uri:
+#     url: "http://localhost:3000/api/auth/keys/{{ item.id }}"
+#     method: DELETE
+#     force_basic_auth: yes
+#     url_username: admin
+#     url_password: "admin123"
+#     status_code: 200
+#   loop: "{{ existing_tokens.json }}"
+#   when: item.name == "Ansible Provisioning"
+#   ignore_errors: yes  # Игнорируем ошибки если токен уже удален
+
+# - name: Create Grafana API token
+#   uri:
+#     url: http://localhost:3000/api/auth/keys
+#     method: POST
+#     body_format: json
+#     body:
+#       name: "Ansible Provisioning"
+#       role: "Admin"
+#     status_code: 200
+#     force_basic_auth: yes
+#     url_username: admin
+#     url_password: "admin123"
+#   register: api_token
+#   no_log: true
+
+# - name: Debug token creation
+#   debug:
+#     msg: "Token created successfully"
+#   when: api_token.status == 200
+
+# - name: Configure email contact point (legacy API)
+#   uri:
+#     url: http://localhost:3000/api/alert-notifications
+#     method: POST
+#     body_format: json
+#     headers:
+#       Authorization: "Bearer {{ api_token.json.key }}"
+#     body:
+#       name: "Email Alerts"
+#       type: "email"
+#       isDefault: true
+#       settings:
+#         addresses: "{{ alert_recipients | join(';') }}"
+#         singleEmail: false
+#     status_code: 201
+#   when: alert_recipients is defined
+#   ignore_errors: yes
+
+---
+- name: Wait for Grafana to be ready
+  uri:
+    url: http://localhost:3000/api/health
+    method: GET
+    status_code: 200
+  register: grafana_health
+  retries: 10
+  delay: 5
+  until: grafana_health.status == 200
+
+- name: Display SMTP and alerting configuration status
+  debug:
+    msg: |
+      ✅ SMTP configured in Docker Compose with:
+         Host: {{ grafana_smtp_host }}
+         From: {{ grafana_smtp_from_address }}
+         Emails: {{ alert_recipients | join(', ') }}
+
+      📧 To test email alerts:
+      1. Login to Grafana: http://{{ inventory_hostname }}:3000 (admin/admin123)
+      2. Go to Alerting → Contact points
+      3. Click "New contact point" 
+      4. Select type "Email"
+      5. Add addresses: {{ alert_recipients | join('; ') }}
+      6. Save
+
+      🔍 Check SMTP settings at: Administration → Settings → SMTP
+      
+      ⚠️  Test alert rules are deployed to Prometheus
+  when: alert_recipients is defined

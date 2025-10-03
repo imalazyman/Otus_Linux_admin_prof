@@ -1,0 +1,39 @@
+# roles/firewall/tasks/webserver.yml
+---
+- name: Open internal ports from internal network
+  firewalld:
+    zone: internal
+    port: "{{ item }}/tcp"
+    permanent: yes
+    state: enabled
+  loop:
+    - "22"    # SSH
+    - "9100"  # Node exporter
+    - "80"    # HTTP
+    - "443"   # HTTPS
+
+- name: Open DMZ ports for web services (from internet)
+  firewalld:
+    zone: dmz
+    port: "{{ item }}/tcp"
+    permanent: yes
+    state: enabled
+  loop:
+    - "80"    # HTTP
+    - "443"   # HTTPS
+
+- name: Allow database access from DMZ to internal
+  firewalld:
+    zone: dmz
+    port: "3306/tcp"  # MySQL
+    permanent: yes
+    state: enabled
+
+- name: Set default zones for network interfaces
+  command: "firewall-cmd --permanent --zone={{ item.zone }} --change-interface={{ item.interface }}"
+  loop:
+    - zone: internal
+      interface: eth1
+    - zone: dmz
+      interface: eth2
+  notify: reload firewall

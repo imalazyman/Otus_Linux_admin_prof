@@ -1,0 +1,7 @@
+# playbooks/wordpress.yml
+---
+- name: Deploy WordPress on web server
+  hosts: webservers
+  become: yes
+  roles:
+    - role: wordpress

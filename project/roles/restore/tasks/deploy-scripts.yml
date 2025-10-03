@@ -1,0 +1,103 @@
+# roles/restore/tasks/deploy-scripts.yml
+---
+- name: Debug actual execution context 1
+  shell: |
+    echo "Actual user: $(whoami)"
+    echo "Effective user: $(id -un)"
+    echo "SSH_AUTH_SOCK: $SSH_AUTH_SOCK"
+    echo "HOME: $HOME"
+    ls -la ~/.ssh/ || echo "No .ssh directory"
+  register: context_debug
+  when: "'backup_servers' in group_names"
+
+- name: Ensure restore log directory exists
+  file:
+    path: "{{ backup_destination }}/logs"
+    state: directory
+    owner: vagrant
+    group: vagrant
+    mode: '0755'
+  when: "'backup_servers' in group_names"
+  tags:
+    - restore-deploy
+    - logs
+
+- name: Deploy MySQL restore script on database servers
+  template:
+    src: restore-mysql.sh.j2
+    dest: /usr/local/bin/restore-mysql.sh
+    mode: '0755'
+  when: "'databases' in group_names"
+  tags:
+    - restore-deploy
+    - db
+    - scripts
+
+- name: Deploy WordPress restore script on web servers
+  template:
+    src: restore-wordpress.sh.j2
+    dest: /usr/local/bin/restore-wordpress.sh
+    mode: '0755'
+  when: "'webservers' in group_names"
+  tags:
+    - restore-deploy
+    - web
+    - scripts
+
+- name: Deploy Monitoring restore script on monitoring servers
+  template:
+    src: restore-monitoring.sh.j2
+    dest: /usr/local/bin/restore-monitoring.sh
+    mode: '0755'
+  when: "'monitoring_servers' in group_names"
+  tags:
+    - restore-deploy
+    - monitoring
+    - scripts
+
+- name: Deploy main restore script on backup servers
+  template:
+    src: restore.sh.j2
+    dest: /usr/local/bin/restore.sh
+    mode: '0755'
+  when: "'backup_servers' in group_names"
+  tags:
+    - restore-deploy
+    - main
+    - scripts
+
+- name: Deploy list-backups script
+  template:
+    src: list-backups.sh.j2
+    dest: /usr/local/bin/list-backups.sh
+    mode: '0755'
+  when: "'backup_servers' in group_names"
+  tags:
+    - restore-deploy
+    - utils
+    - scripts
+
+- name: Validate restore scripts syntax
+  shell: bash -n /usr/local/bin/restore.sh
+  changed_when: false
+  when: "'backup_servers' in group_names"
+  tags:
+    - restore-deploy
+    - validation
+
+- name: Validate list-backups script syntax
+  shell: bash -n /usr/local/bin/list-backups.sh
+  changed_when: false
+  when: "'backup_servers' in group_names"
+  tags:
+    - restore-deploy
+    - validation
+
+- name: Debug actual execution context 2
+  shell: |
+    echo "Actual user: $(whoami)"
+    echo "Effective user: $(id -un)"
+    echo "SSH_AUTH_SOCK: $SSH_AUTH_SOCK"
+    echo "HOME: $HOME"
+    ls -la ~/.ssh/ || echo "No .ssh directory"
+  register: context_debug

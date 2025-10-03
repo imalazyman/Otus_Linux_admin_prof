@@ -1,0 +1,107 @@
+# playbooks/run-backup.yml
+---
+- name: Execute manual backup with rsync
+  hosts: backup_servers
+  become: yes
+  tasks:
+    - name: Create backup timestamp
+      set_fact:
+        backup_timestamp: "{{ ansible_date_time.epoch }}"
+
+    - name: Create backup directories
+      file:
+        path: "{{ item }}/{{ backup_timestamp }}"
+        state: directory
+        owner: vagrant
+        group: vagrant
+        mode: '0755'
+      with_items:
+        - "{{ backup_destination }}/mysql"
+        - "{{ backup_destination }}/wordpress"
+
+    - name: Trigger MySQL backup on database servers
+      command: /usr/local/bin/backup-mysql.sh "{{ backup_timestamp }}"
+      delegate_to: "{{ item }}"
+      with_items: "{{ groups['databases'] }}"
+      become: yes
+      async: 300  # 5 минут таймаут
+      poll: 0     # Не ждем завершения
+
+    - name: Trigger WordPress backup on web server
+      command: /usr/local/bin/backup-wordpress.sh "{{ backup_timestamp }}"
+      delegate_to: "{{ groups['webservers'][0] }}"
+      become: yes
+      async: 300
+      poll: 0
+
+    - name: Wait for backups to be created (30 seconds)
+      pause:
+        seconds: 30
+
+    - name: Copy MySQL backups using rsync
+      synchronize:
+        src: "/tmp/backup_{{ backup_timestamp }}/"
+        dest: "{{ backup_destination }}/mysql/{{ backup_timestamp }}/"
+        mode: pull
+        private_key: "/home/vagrant/.ssh/id_ed25519"
+        rsync_opts:
+          - "--remove-source-files"
+      delegate_to: "{{ item }}"
+      with_items: "{{ groups['databases'] }}"
+
+    - name: Copy WordPress backup using rsync
+      synchronize:
+        src: "/tmp/backup_{{ backup_timestamp }}/"
+        dest: "{{ backup_destination }}/wordpress/{{ backup_timestamp }}/"
+        mode: pull
+        private_key: "/home/vagrant/.ssh/id_ed25519"
+        rsync_opts:
+          - "--remove-source-files"
+      delegate_to: "{{ groups['webservers'][0] }}"
+
+    - name: Cleanup temporary directories on source servers
+      file:
+        path: "/tmp/backup_{{ backup_timestamp }}"
+        state: absent
+      delegate_to: "{{ item }}"
+      with_items: "{{ groups['databases'] + groups['webservers'] }}"
+      become: yes
+
+    - name: Rotate old backups (keep only last {{ backup_retention_days }} days)
+      find:
+        paths: "{{ backup_destination }}/mysql"
+        patterns: "*"
+        file_type: directory
+        age: "{{ backup_retention_days }}d"
+      register: old_mysql_backups
+
+    - name: Remove old MySQL backups
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      with_items: "{{ old_mysql_backups.files }}"
+      when: old_mysql_backups.matched > 0
+
+    - name: Find old WordPress backups
+      find:
+        paths: "{{ backup_destination }}/wordpress"
+        patterns: "*"
+        file_type: directory
+        age: "{{ backup_retention_days }}d"
+      register: old_wp_backups
+
+    - name: Remove old WordPress backups
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      with_items: "{{ old_wp_backups.files }}"
+      when: old_wp_backups.matched > 0
+
+    - name: Show backup summary
+      debug:
+        msg: |
+          Backup completed successfully!
+          Timestamp: {{ backup_timestamp }}
+          Location: {{ backup_destination }}
+          MySQL backups: {{ backup_destination }}/mysql/{{ backup_timestamp }}/
+          WordPress backups: {{ backup_destination }}/wordpress/{{ backup_timestamp }}/

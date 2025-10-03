@@ -1,0 +1,151 @@
+# roles/monitoring/templates/alert-rules.yml.j2 #
+
+
+
+groups:
+  - name: test
+    rules:
+      - alert: InstanceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Instance {{ '$labels.instance' }} down"
+          description: "{{ '$labels.instance' }} of job {{ '$labels.job' }} has been down for more than 1 minute."
+
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          description: "CPU usage is above 80% on {{ '$labels.instance' }}"
+          summary: "High CPU usage detected"
+
+      - alert: TestAlert
+        expr: up == 1
+        for: 0m
+        labels:
+          severity: info
+        annotations:
+          description: "This is a test alert from Prometheus"
+          summary: "Test Alert Working"
+  - name: mariadb
+    rules:
+      # Репликация
+      - alert: MariaDBReplicationLag
+        expr: mysql_slave_status_seconds_behind_master > 30
+        for: 2m
+        labels:
+          severity: warning
+          service: mariadb
+        annotations:
+          description: "MariaDB replication lag is {{ '$value' }} seconds on {{ '$labels.instance' }}"
+          summary: "MariaDB replication delayed"
+
+      - alert: MariaDBReplicationStopped
+        expr: mysql_slave_status_slave_io_running == 0 or mysql_slave_status_slave_sql_running == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: mariadb
+        annotations:
+          description: "MariaDB replication is stopped on {{ '$labels.instance' }}"
+          summary: "MariaDB replication failure"
+
+      # Соединения
+      - alert: MariaDBHighConnections
+        expr: mysql_global_status_threads_connected / mysql_global_variables_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: mariadb
+        annotations:
+          description: "MariaDB connections usage is {{ '$value | humanizePercentage' }} on {{ '$labels.instance' }}"
+          summary: "High MariaDB connections"
+
+      # Производительность
+      - alert: MariaDBSlowQueries
+        expr: rate(mysql_global_status_slow_queries[5m]) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          service: mariadb
+        annotations:
+          description: "High rate of slow queries on {{ '$labels.instance' }}"
+          summary: "MariaDB slow queries detected"
+
+      # Ресурсы
+      - alert: MariaDBBufferPoolUsage
+        expr: (mysql_global_status_innodb_buffer_pool_pages_total - mysql_global_status_innodb_buffer_pool_pages_free) / mysql_global_status_innodb_buffer_pool_pages_total > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          service: mariadb
+        annotations:
+          description: "InnoDB buffer pool usage is {{ '$value | humanizePercentage' }} on {{ '$labels.instance' }}"
+          summary: "High MariaDB buffer pool usage"
+
+  - name: host_availability
+    rules:
+      # Веб-серверы
+      - alert: WebServerDown
+        expr: up{job="webservers"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: webserver
+        annotations:
+          description: "Web server {{ '$labels.instance' }} is down"
+          summary: "Web server unavailable"
+
+      # Серверы баз данных
+      - alert: DatabaseServerDown
+        expr: up{job="databases"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: database
+        annotations:
+          description: "Database server {{ '$labels.instance' }} is down"
+          summary: "Database server unavailable"
+
+      # Резервные серверы
+      - alert: BackupServerDown
+        expr: up{job="backup"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          service: backup
+        annotations:
+          description: "Backup server {{ '$labels.instance' }} is down"
+          summary: "Backup server unavailable"
+
+      # Системные алерты для всех хостов
+      - alert: HostHighCPU
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          description: "CPU usage is above 80% on {{ '$labels.instance' }}"
+          summary: "High CPU usage detected"
+
+      - alert: HostHighMemory
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          description: "Memory usage is above 90% on {{ '$labels.instance' }}"
+          summary: "High memory usage detected"
+
+      - alert: HostDiskSpaceLow
+        expr: (node_filesystem_avail_bytes * 100) / node_filesystem_size_bytes < 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          description: "Disk space is below 10% on {{ '$labels.instance' }} mount {{ '$labels.mountpoint' }}"
+          summary: "Low disk space"

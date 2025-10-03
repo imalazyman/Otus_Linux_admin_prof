@@ -1,0 +1,23 @@
+# roles/wordpress/handlers/main.yml
+---
+- name: restart apache
+  systemd:
+    name: httpd
+    state: restarted
+    enabled: yes
+
+- name: reload apache
+  systemd:
+    name: httpd
+    state: reloaded
+
+# - name: restart php-fpm
+#   systemd:
+#     name: php-fpm
+#     state: restarted
+#     enabled: yes
+
+- name: reload firewall
+  systemd:
+    name: firewalld
+    state: reloaded

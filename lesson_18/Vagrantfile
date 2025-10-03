@@ -1,0 +1,35 @@
+# Альтернативный box поставщик
+# ENV['VAGRANT_SERVER_URL'] = 'https://vagrant.elab.pro'
+
+# Возвращаем дефолтное значение
+ENV['VAGRANT_SERVER_URL'] = 'https://app.vagrantup.com'
+
+Vagrant.configure("2") do |config|
+  # Общие настройки
+  # Отключаем проврку обновления box и guest-addition
+  config.vm.box_check_update = false
+  config.vbguest.no_install = true
+
+  # ===== Update kernel-arm =====
+  # Конфигурация виртуальной машины
+  config.vm.define "web" do |web|
+    web.vm.box = "generic/centos8"
+    web.vm.hostname = "kern-up-test"
+    web.vm.provider "virtualbox" do |vb|
+      vb.memory = 1024
+      vb.cpus = 2
+      vb.name = "kernel_update_test"
+    end
+
+   # Выполняем послеустановочные скрипты
+    web.vm.provision "shell", inline: <<-SHELL
+      # dnf update -y
+      dnf install https://www.elrepo.org/elrepo-release-8.el8.elrepo.noarch.rpm -y
+      dnf --enablerepo elrepo-kernel install kernel-ml -y
+      grub2-mkconfig -o /boot/grub2/grub.cfg
+      sudo grub2-set-default 0
+      reboot
+    SHELL
+  end
+end
+

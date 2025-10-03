@@ -1,0 +1,17 @@
+[Unit]
+Description=Log Monitor Service
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/log-monitor.sh
+User=root
+EnvironmentFile=/etc/default/log-monitor
+
+# Настройки журналирования
+SyslogIdentifier=log-monitor
+SyslogFacility=local0
+SyslogLevel=info
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,36 @@
+# Альтернативный box поставщик
+# ENV['VAGRANT_SERVER_URL'] = 'https://vagrant.elab.pro'
+
+# Возвращаем дефолтное значение
+ENV['VAGRANT_SERVER_URL'] = 'https://app.vagrantup.com'
+
+Vagrant.configure("2") do |config|
+  # Общие настройки
+  # Отключаем проврку обновления box и guest-addition
+  config.vm.box_check_update = false
+  config.vbguest.no_install = true
+
+  # Конфигурация виртуальной машины
+  config.vm.define "System Boot" do |sysd|
+    sysd.vm.box = "ubuntu/jammy64"
+    sysd.vm.box_version = "20241002.0.0"
+    sysd.vm.hostname = "sysd"
+    sysd.vm.synced_folder ".", "/vagrant", disabled: false
+    sysd.vm.provider "virtualbox" do |vb|
+      vb.memory = 1024
+      vb.cpus = 2
+      vb.gui = false
+      # vb.customize ["modifyvm", :id, "--bioslogodisplaytime", "3000"]
+      # vb.customize ["modifyvm", :id, "--biosbootmenu", "messageandmenu"]
+      vb.name = "Otus-learn_09"
+    end
+    # Выполняем послеустановочные скрипты
+     sysd.vm.provision "shell", inline: <<-SHELL
+       apt-get update
+       apt-get upgrade -y
+       apt-get install spawn-fcgi php php-cgi php-cli apache2 libapache2-mod-fcgid -y
+       apt-get install nginx -y
+       reboot
+     SHELL
+  end
+end

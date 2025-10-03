@@ -1,0 +1,17 @@
+[Unit]
+Description=Run log monitor every 30 seconds
+Requires=log-monitor.service
+
+[Timer]
+# Запускать каждые 30 секунд
+OnCalendar=*:*:0/30
+
+# Запускать через 30 секунд после загрузки системы
+OnBootSec=30s
+OnUnitActiveSec=30s
+
+# Настройки точности
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

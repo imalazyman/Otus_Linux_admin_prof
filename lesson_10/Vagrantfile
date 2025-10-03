@@ -1,0 +1,47 @@
+# Альтернативный box поставщик
+# ENV['VAGRANT_SERVER_URL'] = 'https://vagrant.elab.pro'
+
+# Возвращаем дефолтное значение
+ENV['VAGRANT_SERVER_URL'] = 'https://app.vagrantup.com'
+
+Vagrant.configure("2") do |config|
+  # Общие настройки
+  # Отключаем проврку обновления box и guest-addition
+  config.vm.box_check_update = false
+  config.vbguest.no_install = true
+
+  # ===== Update kernel-arm =====
+  # Конфигурация виртуальной машины
+  config.vm.define "bash-log" do |bashlog|
+    bashlog.vm.box = "generic/rocky9"
+    bashlog.vm.box_version = "4.3.12"
+    bashlog.vm.hostname = "bashlog"
+    bashlog.vm.synced_folder ".", "/vagrant", disabled: false
+    bashlog.vm.provider "virtualbox" do |vb|
+      vb.memory = 1024
+      vb.cpus = 2
+      vb.name = "Otus-learn_10"
+    end
+    # Выполняем послеустановочные скрипты
+     bashlog.vm.provision "shell", inline: <<-SHELL
+       dnf makecache
+       #dnf update -y
+       # устаноавливаем пакеты для работы с почтой
+       dnf install sendmail s-nail -y
+       # меняем имя сервера на FQDN имя - это необходимо для отправки почты.
+       hostnamectl set-hostname bashlog.localdomain
+       tee /etc/hosts > /dev/null << 'END'
+127.0.0.1   localhost localhost.localdomain
+127.0.1.1   bashlog.localdomain bashlog
+::1         localhost localhost.localdomain
+END
+       # включаем сервис sendmail
+       systemctl enable sendmail
+       systemctl start sendmail
+       # копируем лог-файл и cкрипт в вирутаульную машину
+       cp /vagrant/access-4560-644067.log /home/vagrant/access.log
+       cp /vagrant/analize.sh /home/vagrant/analize.sh
+       chmod +x /home/vagrant/analize.sh
+     SHELL
+  end
+end

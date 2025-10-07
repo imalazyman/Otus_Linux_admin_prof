@@ -2,13 +2,13 @@
 ---
 - name: Execute system restore procedure
   hosts: all
-  become: yes
+  # become: yes
   vars:
     restore_component: "full"
-    restore_timestamp: "latest" 
+    restore_timestamp: "latest"
     dry_run: false
     mariadb_root_password: "Super_puper_123"
-  
+
   roles:
     - restore
 

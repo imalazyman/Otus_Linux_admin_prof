@@ -29,11 +29,13 @@
     permanent: yes
     state: enabled
 
-- name: Set default zones for network interfaces
-  command: "firewall-cmd --permanent --zone={{ item.zone }} --change-interface={{ item.interface }}"
+- name: Set firewall zones using firewalld module
+  ansible.posix.firewalld:
+    zone: "{{ item.zone }}"
+    interface: "{{ item.interface }}"
+    permanent: yes
+    state: enabled
   loop:
-    - zone: internal
-      interface: eth1
-    - zone: dmz
-      interface: eth2
+    - { interface: eth1, zone: internal }
+    - { interface: eth2, zone: dmz }
   notify: reload firewall

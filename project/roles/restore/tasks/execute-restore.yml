@@ -1,5 +1,5 @@
 
-#\roles\restore\tasks\execute-restore.yml
+# roles/restore/tasks/execute-restore.yml
 ---
 - name: Debug actual execution context
   shell: |
@@ -19,9 +19,9 @@
     /usr/local/bin/restore.sh "{{ backup_path }}" "{{ restore_component }}" "{{ actual_timestamp }}"
   args:
     executable: /bin/bash
-  # become: no 
+  # become: no
   register: restore_result
-  changed_when: 
+  changed_when:
     - "'Restore completed' in restore_result.stdout"
     - not dry_run | bool
   tags:
@@ -35,7 +35,7 @@
 #     PATH: "{{ ansible_env.PATH }}"
 #     HOME: "{{ ansible_env.HOME }}"
 #   register: restore_result
-#   changed_when: 
+#   changed_when:
 #     - "'Restore completed' in restore_result.stdout"
 #     - not dry_run | bool
 

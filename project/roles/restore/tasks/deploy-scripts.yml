@@ -1,15 +1,5 @@
 # roles/restore/tasks/deploy-scripts.yml
 ---
-- name: Debug actual execution context 1
-  shell: |
-    echo "Actual user: $(whoami)"
-    echo "Effective user: $(id -un)"
-    echo "SSH_AUTH_SOCK: $SSH_AUTH_SOCK"
-    echo "HOME: $HOME"
-    ls -la ~/.ssh/ || echo "No .ssh directory"
-  register: context_debug
-  when: "'backup_servers' in group_names"
-
 - name: Ensure restore log directory exists
   file:
     path: "{{ backup_destination }}/logs"
@@ -92,12 +82,3 @@
   tags:
     - restore-deploy
     - validation
-
-- name: Debug actual execution context 2
-  shell: |
-    echo "Actual user: $(whoami)"
-    echo "Effective user: $(id -un)"
-    echo "SSH_AUTH_SOCK: $SSH_AUTH_SOCK"
-    echo "HOME: $HOME"
-    ls -la ~/.ssh/ || echo "No .ssh directory"
-  register: context_debug

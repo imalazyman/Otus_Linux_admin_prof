@@ -8,7 +8,7 @@
  
     ssh-keygen -t ed25519 -C "vagrant@master-srv"
   
-    echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDCM3Xy/GdDT43tdNpMe5GRCqlmZcRmJZsARqFahF73R vagrant@master-srv" >> ~/.ssh/authorized_keys
+    
   
   ### Порядок запуска playbooks
   

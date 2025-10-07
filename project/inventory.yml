@@ -21,7 +21,7 @@ all:
     dmz_network:
       hosts:
         web-srv:
-          ansible_host: 192.168.57.10  # DMZ IP
+          ansible_host: 192.168.56.10 
           server_type: "webserver"
 
     # Группы по ролям

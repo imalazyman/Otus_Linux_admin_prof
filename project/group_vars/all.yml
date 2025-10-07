@@ -5,6 +5,9 @@ backup_destination: "/opt/backups"
 backup_server: "192.168.56.14"  # ansible-srv
 backup_retention_days: 7
 
+# Настройки MariaDB
+mariadb_root_password: "Super_puper_123"
+
 # Настройки для бэкапа БД
 db_backup_host: "192.168.56.11"  # db-1-srv
 db_backup_user: "backup_user"

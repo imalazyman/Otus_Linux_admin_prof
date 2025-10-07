@@ -82,7 +82,7 @@ restore_web() {
     
     # Выполняем восстановление на WEB сервере
     log "Executing restore on WEB server..."
-    ssh vagrant@192.168.56.10 "/usr/local/bin/restore-wordpress.sh /tmp/restore_wordpress.tar.gz"
+    ssh vagrant@192.168.56.10 "sudo /usr/local/bin/restore-wordpress.sh /tmp/restore_wordpress.tar.gz"
     
     # Проверяем результат
     local web_restore_result=$?

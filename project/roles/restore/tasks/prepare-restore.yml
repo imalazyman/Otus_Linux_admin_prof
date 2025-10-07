@@ -1,5 +1,18 @@
 # /roles/restore/tasks/prepare-restore.yml
 ---
+- name: Debug actual execution context 2
+  shell: |
+    echo "Actual user: $(whoami)"
+    echo "Effective user: $(id -un)"
+    echo "SSH_AUTH_SOCK: $SSH_AUTH_SOCK"
+    echo "HOME: $HOME"
+    ls -la ~/.ssh/ || echo "No .ssh directory"
+  register: context_debug2
+
+- name: Show context debug 2
+  debug:
+    var: context_debug2.stdout_lines
+
 - name: Get the latest timestamp from mysql backups
   shell: |
     ls -1 {{ backup_destination }}/mysql/ | grep "^2" | sort -r | head -1
@@ -75,13 +88,13 @@
       Actual timestamp: {{ actual_timestamp }}
       Backup path: {{ backup_path }}
       Dry run mode: {{ dry_run }}
-      
+
       📊 BACKUP STATUS
       ================
       Latest backup found: {{ latest_timestamp.stdout | default('N/A') }}
       Timestamp exists: {{ timestamp_check.stat.exists | default(false) }}
       Backup destination: {{ backup_destination }}
-      
+
       🎯 OPERATION
       ============
       Will restore {{ restore_component }} from:
@@ -104,4 +117,8 @@
     echo "SSH_AUTH_SOCK: $SSH_AUTH_SOCK"
     echo "HOME: $HOME"
     ls -la ~/.ssh/ || echo "No .ssh directory"
-  register: context_debug
+  register: context_debug3
+
+- name: Show context debug 3
+  debug:
+    var: context_debug3.stdout_lines

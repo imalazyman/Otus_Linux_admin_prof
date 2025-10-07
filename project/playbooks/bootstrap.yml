@@ -4,7 +4,7 @@
   hosts: all                              # Применяем ко ВСЕМ хостам из inventory
   vars_files:                             # Подключаем наш файл с переменными
     - vars.yml
-  become: yes                             # Выполнять задачи с повышением прав (sudo)
+  # become: yes                             # Выполнять задачи с повышением прав (sudo)
   tasks:                                  # Начинаем блок задач
 
   # - name: Create the system user '{{ system_user }}'  # Создаем пользователя

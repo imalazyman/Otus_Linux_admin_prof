@@ -7,7 +7,7 @@
     state: present
 
 
-# установка основных пакетов
+# Установка основных пакетов
 - name: Install basic packages 
   ansible.builtin.dnf:
     name:
@@ -21,6 +21,7 @@
       - libselinux-python3
     state: present
 
+# Установка node-exporter на все сервера, кроме mon-srv
 - name: Install node-exporter (except monitoring server)
   ansible.builtin.dnf:
     name: node-exporter
@@ -68,13 +69,13 @@
     state: started
     enabled: yes
 
-- name: Configure firewall for node-exporter
-  firewalld:
-    port: 9100/tcp
-    permanent: yes
-    state: enabled
+# - name: Configure firewall for node-exporter <--Перенесено в роль firewall
+#   firewalld:
+#     port: 9100/tcp
+#     permanent: yes
+#     state: enabled
 
-# Включаем Selinux в состояние enforcing
+# Настраиваем Selinux в состояние enforcing
 - name: Ensure SELinux is enforcing 
   ansible.builtin.selinux:
     policy: targeted
@@ -92,6 +93,7 @@
   async: 1
   poll: 0
 
+# Распространяем изменения в фай hosts на все сервера
 - name: Add internal DNS entries to hosts file
   blockinfile:
     path: /etc/hosts

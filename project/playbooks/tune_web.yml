@@ -1,0 +1,6 @@
+---
+- import_playbook: bootstrap.yml
+- import_playbook: common.yml
+- import_playbook: promtail.yml
+- import_playbook: wordpress.yml
+- import_playbook: backup.yml

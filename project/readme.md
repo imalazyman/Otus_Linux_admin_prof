@@ -4,13 +4,13 @@
     sudo dnf install epel-release -y
     sudo dnf install ansible git vim python3 python3-pip -y
   
- ### Генерация и деплой ключей на сервера 
+### Генерация и деплой ключей на сервера 
  
     ssh-keygen -t ed25519 -C "vagrant@master-srv"
   
-    
+    echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDCM3Xy/GdDT43tdNpMe5GRCqlmZcRmJZsARqFahF73R vagrant@master-srv" >> ~/.ssh/authorized_keys
   
-  ### Порядок запуска playbooks
+### Порядок запуска playbooks
   
     ansible-playbook -i inventory.yml playbooks/bootstrap.yml
     ansible-playbook -i inventory.yml playbooks/common.yml

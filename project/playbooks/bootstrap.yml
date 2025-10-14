@@ -4,27 +4,10 @@
   hosts: all                              # Применяем ко ВСЕМ хостам из inventory
   vars_files:                             # Подключаем наш файл с переменными
     - vars.yml
-  # become: yes                             # Выполнять задачи с повышением прав (sudo)
+  become: yes                             # Выполнять задачи с повышением прав (sudo)
+  
+  
   tasks:                                  # Начинаем блок задач
-
-  # - name: Create the system user '{{ system_user }}'  # Создаем пользователя
-  #   user:
-  #     name: "{{ system_user }}"
-  #     state: present
-  #     create_home: yes
-  #     shell: /bin/bash
-
-  # - name: Set up authorized key for the user  # Копируем наш публичный ключ для этого пользователя
-  #   ansible.posix.authorized_key:
-  #     user: "{{ system_user }}"
-  #     state: present
-  #     key: "{{ lookup('file', '~/.ssh/id_ed25519.pub') }}" # "Смотри" содержимое файла с ключом
-
-  # - name: Ensure the user is in the sudo group  # Добавляем пользователя в группу wheel (для sudo)
-  #   user:
-  #     name: "{{ system_user }}"
-  #     groups: wheel
-  #     append: yes
 
   - name: Ensure sudo group has passwordless sudo  # Настраиваем sudo без пароля для группы wheel
     lineinfile:

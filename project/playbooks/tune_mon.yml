@@ -3,6 +3,4 @@
 - import_playbook: common.yml
 - import_playbook: promtail.yml
 - import_playbook: monitoring.yml
-- import_playbook: mariadb.yml  
-- import_playbook: monitoring.yml
-- import_playbook: wordpress.yml
+- import_playbook: backup.yml

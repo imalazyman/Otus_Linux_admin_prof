@@ -100,7 +100,7 @@
     block: |
       # Internal network hosts
       192.168.56.10 web-srv web-srv.internal
-      192.168.56.11 db-1-srv db-1-srv.internal  
+      192.168.56.11 db-1-srv db-1-srv.internal
       192.168.56.12 db-2-srv db-2-srv.internal
       192.168.56.13 mon-srv mon-srv.internal
       192.168.56.14 ansible-srv ansible-srv.internal

@@ -46,23 +46,27 @@
     path: /var/lib/mysql/mysql.sock
   register: mysql_socket
 
+- name: Show socket check result
+  debug:
+    var: mysql_socket.stat.exists
+
 - name: Debug socket existence
   debug:
     msg: "MySQL socket exists: {{ mysql_socket.stat.exists }}"
 
-# - name: Set root password and enable password authentication
-#   mysql_user:
-#     name: root
-#     host: localhost
-#     password: "{{ mariadb_root_password }}"
-#     check_implicit_admin: yes
-#     login_unix_socket: /var/lib/mysql/mysql.sock
+- name: Set root password and enable password authentication
+  mysql_user:
+    name: root
+    host: localhost
+    password: "{{ mariadb_root_password }}"
+    check_implicit_admin: yes
+    login_unix_socket: /var/lib/mysql/mysql.sock
 
 - name: Check if root password is already set
   command: mysql -u root -p"{{ mariadb_root_password }}" -e "SELECT 1" 
   register: root_password_check
   changed_when: false
-  ignore_errors: yes
+  #ignore_errors: yes
   failed_when: false
 
 - name: Set root password if not set
@@ -78,6 +82,7 @@
     state: present
     login_user: root
     login_password: "{{ mariadb_root_password }}"
+  become: no
   with_items: "{{ mariadb_databases }}"
 
 - name: Create application user

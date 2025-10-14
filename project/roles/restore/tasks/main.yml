@@ -2,6 +2,8 @@
 ---
 - name: Include restore deployment tasks
   include_tasks: deploy-scripts.yml
+  vars:
+    ansible_become: yes
 
 - name: Include restore preparation tasks
   include_tasks: prepare-restore.yml

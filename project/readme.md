@@ -14,18 +14,25 @@
   
     echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDCM3Xy/GdDT43tdNpMe5GRCqlmZcRmJZsARqFahF73R vagrant@master-srv" >> ~/.ssh/authorized_keys
   
-### Порядок запуска playbooks
-  
-    ansible-playbook -i inventory.yml playbooks/bootstrap.yml
-    ansible-playbook -i inventory.yml playbooks/common.yml
-    ansible-playbook -i inventory.yml playbooks/promtail.yml
-    ansible-playbook -i inventory.yml playbooks/monitoring.yml
+### Порядок запуска playbooks для конфигурации серверов.
 
+#### Настройка web-сервера
+
+    ansible-playbook -i inventory.yml playbooks/tune_web.yml --limit web-srv
+
+#### Настройка сервера мониторинга
+
+    ansible-playbook -i inventory.yml playbooks/tune_mon.yml --limit mon-srv
+
+#### Настройка серверов баз данных
+
+    ansible-playbook -i inventory.yml playbooks/tune_db.yml --limit db-2-srv | db-2-srv
+    ansible-playbook -i inventory.yml playbooks/mariadb-replication.yml
+
+## Восстановление компонентов
 
 ### Запуск скрипта для листинга бэкапов
     sudo /usr/local/bin/list-backups.sh
-
-## Восстановление компонентов
 
 ### Пример запуска через скрипт
     sudo /usr/local/bin/restore.sh /opt/backups/mysql/20250928_020001/ db

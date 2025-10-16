@@ -127,7 +127,7 @@
 
 Стенд развернут, попытка удаленного изменения зоны ddns.lab к успеху не привела.
 
-        nsupdate -k /etc/named.zonetransfer.key
+        $ nsupdate -k /etc/named.zonetransfer.key
         > server 192.168.50.10
         > zone ddns.lab
         > update add www.ddns.lab. 60 A 192.168.50.15

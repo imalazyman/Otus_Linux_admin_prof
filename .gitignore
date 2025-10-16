@@ -4,6 +4,7 @@
 .vscode/
 #Vagrant folder
 .vagrant/
+**/.vagrant/
 #Cache folder
 .alcache/
 #Symbols folder

@@ -143,4 +143,4 @@
         LISTEN     0      128       [::]:8080                  [::]:* 
 
 Проверяем на хостовой машине
-[screenshot](image.png) 
+![screenshot](image.png) 

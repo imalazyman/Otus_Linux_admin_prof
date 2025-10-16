@@ -127,6 +127,15 @@
 
 Стенд развернут, попытка удаленного изменения зоны ddns.lab к успеху не привела.
 
+        nsupdate -k /etc/named.zonetransfer.key
+        > server 192.168.50.10
+        > zone ddns.lab
+        > update add www.ddns.lab. 60 A 192.168.50.15
+        > send
+        update failed: SERVFAIL
+        > quit
+        [vagrant@client ~]$
+
 #### 2.2 Выяснить причины неработоспособности;
 
 На сервере NS01 проверяем журнал аудита
@@ -148,16 +157,16 @@
 
 Есть несколько путей решения:
 
- - 1. Временное решение (отключить защиту):
+1. Временное решение (отключить защиту):
 
-                $ setsebool -P named_write_master_zones on
+        $ setsebool -P named_write_master_zones on
 
- - 2. Постоянное решение (создать политику):
+2. Постоянное решение (создать политику):
 
         $ sudo grep named /var/log/audit/audit.log | audit2allow -M mynamed
         $ sudo semodule -i mynamed.pp
 
- - 3. Исправить контексты:
+3. Исправить контексты:
 
 Текущие контексты в /etc/named :
 
@@ -169,13 +178,13 @@
 
         $ sudo chcon -R -t named_zone_t /etc/named
 
- - 4. Изменить playbook и файлы стенда, чтобы файлы зон сразу находились в каталоге с нужным контекстом      
+4. Изменить playbook и файлы стенда, чтобы файлы зон сразу находились в каталоге с нужным контекстом      
 
         $ sudo semanage fcontext -l | grep named_zone
         /var/named(/.*)?                                   all files          system_u:object_r:named_zone_t:s0 
         /var/named/chroot/var/named(/.*)?                  all files          system_u:object_r:named_zone_t:s0 
 
-как видно из вывода - это каталог   /var/named . Меняем в секции playbook.yml относящейся к серверу ns01 "таски" с копированием файлов зон с /etc/named на /var/named. Так же вносим аналогичные изменения файле named.conf.
+Как видно из вывода - это каталог   /var/named . Меняем в секции playbook.yml относящейся к серверу ns01 "таски" с копированием файлов зон с /etc/named на /var/named. Так же вносим аналогичные изменения файле named.conf.
 
 Это решение представляется наиболее верным, после него не придется более вносить изменения в контексты для вновь добавляемых зон.
 

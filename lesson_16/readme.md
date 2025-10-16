@@ -11,6 +11,8 @@
 
 Создадим [Vagrantfile](./Vagrantfile) 
 
+Провиженинг сделаем через ansible
+
         Vagrant.configure(2) do |config|
         config.vm.box = "centos/7"
         
@@ -45,3 +47,98 @@
 
 
 [Ansible playbook](./provisioning/playbook.yml)
+
+        ---
+        - name: Deploy and configure Nginx on CentOS 7
+        hosts: all
+        become: yes
+        vars_files:
+            - [vars/default.yml](./provisioning/vars/default.yml) # Файл с переменными
+
+        tasks:
+            # Для установки ngix нужен epel репозиторий
+            - name: Install EPEL repository (required for nginx on CentOS 7) # Для установки ngix нужен epel репозиторий
+            yum:
+                name: epel-release
+                state: present
+
+            - name: Install packages
+            yum:
+                name:
+                # Устаннавливаем nginx и пакеты для управления SELinux
+                - nginx
+                - policycoreutils-python
+                - policycoreutils-newrole
+
+                state: latest
+            notify:
+                - Enable nginx service # Добавляем nginx в автозагрузку
+                - Start nginx service  # Стартуем nginx
+
+            - name: Add SELinux port permission for nginx on port 8080
+            # Настраиваем SELinux (привет предыдущей лабораторке )
+            seport:
+                ports: "{{ nginx_listen_port }}"
+                proto: tcp
+                setype: http_port_t
+                state: present
+
+            - name: Create custom nginx configuration from template
+            # Разворачиваем конфигурацию из шаблона jinja2 с перемененными;
+            template:
+                src: [templates/nginx.conf.j2](./provisioning/templates/nginx.conf.j2)
+                dest: "{{ nginx_conf_path }}"
+                backup: yes
+                mode: 0644
+            notify:
+                - Restart nginx service
+
+            - name: Configure firewall to allow nginx port
+            firewalld:
+                port: "{{ nginx_listen_port }}/tcp"
+                permanent: yes
+                state: enabled
+            notify:
+                - Reload firewall
+
+            - name: Create custom index.html
+            copy:
+                content: |
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Nginx on Port {{ nginx_listen_port }}</title>
+                </head>
+                <body>
+                    <h1>Welcome to Nginx!</h1>
+                    <p>Server is listening on port {{ nginx_listen_port }}</p>
+                    <p>This page was deployed by Ansible</p>
+                    <p>SELinux configured for port {{ nginx_listen_port }}</p>
+                </body>
+                </html>
+                dest: /usr/share/nginx/html/index.html
+                mode: 0644
+            notify:
+                - Restart nginx service
+
+        handlers:
+            - name: Enable nginx service
+            systemd:
+                name: nginx
+                enabled: yes
+
+            - name: Start nginx service
+            systemd:
+                name: nginx
+                state: started
+
+            - name: Restart nginx service
+            systemd:
+                name: nginx
+                state: restarted
+                daemon_reload: yes
+
+            - name: Reload firewall
+            systemd:
+                name: firewalld
+                state: reloaded

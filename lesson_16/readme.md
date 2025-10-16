@@ -53,11 +53,11 @@
         hosts: all
         become: yes
         vars_files:
-            - [vars/default.yml](./provisioning/vars/default.yml) # Файл с переменными
+            - vars/default.yml # Файл с переменными
 
         tasks:
             # Для установки ngix нужен epel репозиторий
-            - name: Install EPEL repository (required for nginx on CentOS 7) # Для установки ngix нужен epel репозиторий
+            - name: Install EPEL repository (required for nginx on CentOS 7)
             yum:
                 name: epel-release
                 state: present
@@ -69,11 +69,16 @@
                 - nginx
                 - policycoreutils-python
                 - policycoreutils-newrole
-
                 state: latest
-            notify:
-                - Enable nginx service # Добавляем nginx в автозагрузку
-                - Start nginx service  # Стартуем nginx
+
+            - name: Create custom nginx configuration from template
+            # Разворачиваем конфигурацию из шаблона jinja2 с перемененными;
+            template:
+                src: templates/nginx.conf.j2
+                dest: "{{ nginx_conf_path }}"
+                backup: yes
+                mode: 0644
+
 
             - name: Add SELinux port permission for nginx on port 8080
             # Настраиваем SELinux (привет предыдущей лабораторке )
@@ -82,18 +87,12 @@
                 proto: tcp
                 setype: http_port_t
                 state: present
-
-            - name: Create custom nginx configuration from template
-            # Разворачиваем конфигурацию из шаблона jinja2 с перемененными;
-            template:
-                src: [templates/nginx.conf.j2](./provisioning/templates/nginx.conf.j2)
-                dest: "{{ nginx_conf_path }}"
-                backup: yes
-                mode: 0644
             notify:
-                - Restart nginx service
+                - Enable nginx service # Добавляем nginx в автозагрузку
+                - Start nginx service  # Стартуем nginx
 
             - name: Configure firewall to allow nginx port
+            # Настраиваем Firewall
             firewalld:
                 port: "{{ nginx_listen_port }}/tcp"
                 permanent: yes
@@ -102,6 +101,7 @@
                 - Reload firewall
 
             - name: Create custom index.html
+            # Создадим свой index.html, который будет показывать информацию о настроках
             copy:
                 content: |
                 <!DOCTYPE html>
@@ -118,8 +118,6 @@
                 </html>
                 dest: /usr/share/nginx/html/index.html
                 mode: 0644
-            notify:
-                - Restart nginx service
 
         handlers:
             - name: Enable nginx service
@@ -132,13 +130,17 @@
                 name: nginx
                 state: started
 
-            - name: Restart nginx service
-            systemd:
-                name: nginx
-                state: restarted
-                daemon_reload: yes
-
             - name: Reload firewall
             systemd:
                 name: firewalld
                 state: reloaded
+
+
+После запуска проверяем доступность заданного порта и получаем
+
+        $ ss -tlpn | grep 8080
+        LISTEN     0      128          *:8080                     *:*                  
+        LISTEN     0      128       [::]:8080                  [::]:* 
+
+Проверяем на хостовой машине
+[screenshot](image.png) 

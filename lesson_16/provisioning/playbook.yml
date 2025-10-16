@@ -3,15 +3,17 @@
   hosts: all
   become: yes
   vars_files:
-    - vars/default.yml
+    - vars/default.yml # Файл с переменными
 
   tasks:
     - name: Install EPEL repository (required for nginx on CentOS 7)
+    # Для установки ngix нужен epel репозиторий
       yum:
         name: epel-release
         state: present
 
     - name: Install packages
+    # Устаннавливаем nginx и пакеты для управления SELinux
       yum:
         name:
           - nginx
@@ -22,29 +24,28 @@
         - Enable nginx service
         - Start nginx service
 
-    - name: Configure SELinux to allow nginx on non-standard port
-      seboolean:
-        name: nis_enabled
-        state: yes
-        persistent: yes
+    - name: Create custom nginx configuration from template
+    # Разворачиваем конфигурацию из шаблона jinja2 с перемененными;
+      template:
+        src: templates/nginx.conf.j2
+        dest: "{{ nginx_conf_path }}"
+        backup: yes
+        mode: 0644
 
     - name: Add SELinux port permission for nginx on port 8080
+    # Настраиваем SELinux (привет предыдущей лабораторке )
       seport:
         ports: "{{ nginx_listen_port }}"
         proto: tcp
         setype: http_port_t
         state: present
 
-    - name: Create custom nginx configuration from template
-      template:
-        src: templates/nginx.conf.j2
-        dest: "{{ nginx_conf_path }}"
-        backup: yes
-        mode: 0644
       notify:
-        - Restart nginx service
+        - Enable nginx service # Добавляем nginx в автозагрузку
+        - Start nginx service  # Стартуем nginx
 
     - name: Configure firewall to allow nginx port
+     # Настраиваем Firewall
       firewalld:
         port: "{{ nginx_listen_port }}/tcp"
         permanent: yes
@@ -53,6 +54,7 @@
         - Reload firewall
 
     - name: Create custom index.html
+    # Создадим свой index.html, который будет показывать информацию о настроках
       copy:
         content: |
           <!DOCTYPE html>
@@ -69,8 +71,6 @@
           </html>
         dest: /usr/share/nginx/html/index.html
         mode: 0644
-      notify:
-        - Restart nginx service
 
   handlers:
     - name: Enable nginx service
@@ -82,12 +82,6 @@
       systemd:
         name: nginx
         state: started
-
-    - name: Restart nginx service
-      systemd:
-        name: nginx
-        state: restarted
-        daemon_reload: yes
 
     - name: Reload firewall
       systemd:

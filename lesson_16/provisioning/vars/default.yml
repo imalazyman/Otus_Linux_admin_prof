@@ -1,0 +1,7 @@
+---
+# Nginx variables
+nginx_conf_path: "/etc/nginx/nginx.conf"
+nginx_listen_port: 8080
+nginx_server_name: "localhost"
+nginx_worker_processes: "auto"
+nginx_worker_connections: 1024

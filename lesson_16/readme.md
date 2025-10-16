@@ -55,33 +55,36 @@
         vars_files:
             - vars/default.yml # Файл с переменными
 
+Для установки ngix нужен epel репозиторий
+
         tasks:
-            # Для установки ngix нужен epel репозиторий
             - name: Install EPEL repository (required for nginx on CentOS 7)
             yum:
                 name: epel-release
                 state: present
 
+Устаннавливаем nginx и пакеты для управления SELinux
+
             - name: Install packages
             yum:
                 name:
-                # Устаннавливаем nginx и пакеты для управления SELinux
                 - nginx
                 - policycoreutils-python
                 - policycoreutils-newrole
                 state: latest
+            
+Разворачиваем конфигурацию из шаблона jinja2 с перемененными;
 
             - name: Create custom nginx configuration from template
-            # Разворачиваем конфигурацию из шаблона jinja2 с перемененными;
             template:
                 src: templates/nginx.conf.j2
                 dest: "{{ nginx_conf_path }}"
                 backup: yes
                 mode: 0644
 
+Настраиваем SELinux (привет предыдущей лабораторке )
 
             - name: Add SELinux port permission for nginx on port 8080
-            # Настраиваем SELinux (привет предыдущей лабораторке )
             seport:
                 ports: "{{ nginx_listen_port }}"
                 proto: tcp
@@ -90,9 +93,10 @@
             notify:
                 - Enable nginx service # Добавляем nginx в автозагрузку
                 - Start nginx service  # Стартуем nginx
+            
+Настраиваем Firewall
 
             - name: Configure firewall to allow nginx port
-            # Настраиваем Firewall
             firewalld:
                 port: "{{ nginx_listen_port }}/tcp"
                 permanent: yes
@@ -100,8 +104,9 @@
             notify:
                 - Reload firewall
 
+Создадим свой index.html, который будет показывать информацию о настроках
+
             - name: Create custom index.html
-            # Создадим свой index.html, который будет показывать информацию о настроках
             copy:
                 content: |
                 <!DOCTYPE html>
@@ -119,6 +124,8 @@
                 dest: /usr/share/nginx/html/index.html
                 mode: 0644
 
+Опишем хендлеры
+
         handlers:
             - name: Enable nginx service
             systemd:
@@ -134,7 +141,6 @@
             systemd:
                 name: firewalld
                 state: reloaded
-
 
 После запуска проверяем доступность заданного порта и получаем
 

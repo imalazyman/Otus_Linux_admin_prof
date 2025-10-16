@@ -123,3 +123,74 @@
 - выбрать одно из решений для реализации, предварительно обосновав выбор;
 - реализовать выбранное решение и продемонстрировать его работоспособность.
 
+#### 2.1 развернуть приложенный стенд;
+
+Стенд развернут, попытка удаленного изменения зоны ddns.lab к успеху не привела.
+
+#### 2.2 Выяснить причины неработоспособности;
+
+На сервере NS01 проверяем журнал аудита
+
+        $ sudo -i
+        # cat /var/log/audit/audit.log | audit2why
+        type=AVC msg=audit(1760511667.094:2077): avc:  denied  { create } for  pid=5837 comm="isc-worker0000" name="named.ddns.lab.view1.jnl" scontext=system_u:system_r:named_t:s0 tcontext=system_u:object_r:etc_t:s0 tclass=file permissive=0
+
+                Was caused by:
+                        Missing type enforcement (TE) allow rule.
+
+                        You can use audit2allow to generate a loadable module to allow this access.
+
+Проблема: SELinux блокирует создание journal-файла потому что:
+ - BIND (named_t) пытается создать файл в директории, где у файлов должен быть контекст etc_t
+ - Но по политике SELinux, процесс named_t не может создавать файлы с контекстом etc_t
+
+#### 2.3 предложить решение (или решения) для данной проблемы;
+
+Есть несколько путей решения:
+
+ - 1. Временное решение (отключить защиту):
+
+                $ setsebool -P named_write_master_zones on
+
+ - 2. Постоянное решение (создать политику):
+
+        $ sudo grep named /var/log/audit/audit.log | audit2allow -M mynamed
+        $ sudo semodule -i mynamed.pp
+
+ - 3. Исправить контексты:
+
+Текущие контексты в /etc/named :
+
+        $ sudo ls -laZ /etc/named
+        drwxr-x---. root named system_u:object_r:etc_t:s0       .
+        drwxr-xr-x. root root  system_u:object_r:etc_t:s0       ..
+
+Изменим их на необходимые нам - named_zone_t :
+
+        $ sudo chcon -R -t named_zone_t /etc/named
+
+ - 4. Изменить playbook и файлы стенда, чтобы файлы зон сразу находились в каталоге с нужным контекстом      
+
+        $ sudo semanage fcontext -l | grep named_zone
+        /var/named(/.*)?                                   all files          system_u:object_r:named_zone_t:s0 
+        /var/named/chroot/var/named(/.*)?                  all files          system_u:object_r:named_zone_t:s0 
+
+как видно из вывода - это каталог   /var/named . Меняем в секции playbook.yml относящейся к серверу ns01 "таски" с копированием файлов зон с /etc/named на /var/named. Так же вносим аналогичные изменения файле named.conf.
+
+Это решение представляется наиболее верным, после него не придется более вносить изменения в контексты для вновь добавляемых зон.
+
+
+#### 2.3 Реализовать выбранное решение и продемонстрировать его работоспособность;
+
+К заданию приложен исправленый playbook.
+
+Выполнение на клиентской машине изменние зоны ddns.lab - ошибок не вызывает.
+
+        [vagrant@client ~]$ nsupdate -k /etc/named.zonetransfer.key
+        > server 192.168.50.10
+        > zone ddns.lab
+        > update add www.ddns.lab. 60 A 192.168.50.15
+        > send
+        > quit
+        [vagrant@client ~]$ 
+

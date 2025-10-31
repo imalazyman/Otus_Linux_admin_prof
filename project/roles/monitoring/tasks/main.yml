@@ -77,18 +77,10 @@
     mode: '0644'
   register: loki_config_changed 
 
-# - name: Deploy alert rules
-#   template:
-#     src: alert-rules.yml.j2
-#     dest: /opt/monitoring/alert-rules.yml
-#     mode: '0644'
-#   register: alert_config_changed
-
 - name: Stop and remove old mysqld-exporter container if exists
   shell: |
     docker stop mysqld-exporter 2>/dev/null || true
     docker rm mysqld-exporter 2>/dev/null || true
-  # ignore_errors: yes
 
 - name: Ensure monitoring stack is running with Docker Compose
   command:

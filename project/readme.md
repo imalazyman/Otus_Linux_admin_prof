@@ -13,6 +13,8 @@
     ssh-keygen -t ed25519 -C "vagrant@master-srv"
   
     echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDCM3Xy/GdDT43tdNpMe5GRCqlmZcRmJZsARqFahF73R vagrant@master-srv" >> ~/.ssh/authorized_keys
+    
+    echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINzSqcMagbWby1zG59DNJ+MfiRdN5/tkYxe5y6tVRHu1 vagrant@master-srv" >> ~/.ssh/authorized_keys
   
 ### Порядок запуска playbooks для конфигурации серверов.
 
@@ -22,7 +24,7 @@
 
 #### Настройка сервера мониторинга
 
-    ansible-playbook -i inventory.yml playbooks/tune_mon.yml --limit mon-srv
+    ansible-playbook -i inventory.yml playbooks/tune_mon.yml 
 
 #### Настройка серверов баз данных
 

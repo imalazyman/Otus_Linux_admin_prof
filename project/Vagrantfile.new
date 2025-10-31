@@ -1,0 +1,78 @@
+# дефолтное значение
+ENV['VAGRANT_SERVER_URL'] = 'https://app.vagrantup.com'
+
+Vagrant.configure("2") do |config|
+  # Общие настройки для ВСЕХ машин
+  config.vm.box_check_update = false
+  config.vbguest.no_install = true
+  config.vbguest.auto_update = false
+  config.vm.boot_timeout = 600
+  config.ssh.connect_timeout = 300
+  config.ssh.keep_alive = true
+  
+  # Общий провайдер для всех машин
+  config.vm.provider "virtualbox" do |vb|
+    vb.gui = false
+    vb.check_guest_additions = false
+  end
+
+  # Базовые настройки для всех машин
+  config.vm.define "web" do |web|
+    apply_common_settings(web, "web-srv", 1024, 1, "web-server", "192.168.56.10", 2222)
+    web.vm.network "private_network", ip: "192.168.57.10"  # Дополнительная сеть только для web
+  end
+
+  config.vm.define "db_1" do |db_1|
+    apply_common_settings(db_1, "db-1-srv", 2048, 2, "db-1-server", "192.168.56.11", 2223)
+  end
+
+  config.vm.define "db_2" do |db_2|
+    apply_common_settings(db_2, "db-2-srv", 2048, 2, "db-2-server", "192.168.56.12", 2224)
+  end
+
+  config.vm.define "mon" do |mon|
+    apply_common_settings(mon, "mon-srv", 2048, 2, "monitoring-server", "192.168.56.13", 2225)
+  end
+
+  config.vm.define "confm" do |confm|
+    apply_common_settings(confm, "master-srv", 1024, 1, "ansible-server", "192.168.56.14", 2226)
+    
+    # Синхронизация папки только для confm
+    confm.vm.synced_folder "./", "/home/vagrant/project", 
+      disabled: false, 
+      create: true,
+      owner: "vagrant",
+      group: "vagrant"
+      
+    # Специфичный провижининг только для confm
+    confm.vm.provision "shell", inline: <<-SHELL, timeout: 600
+      echo "Installing additional packages on confm..."
+      dnf update -y --nogpgcheck
+      dnf install -y epel-release kernel-devel kernel-headers gcc make perl
+      dnf install -y ansible git vim python3 python3-pip
+      echo "confm setup completed!"
+    SHELL
+  end
+end
+
+# Общая функция для настройки машин
+def apply_common_settings(machine, hostname, memory, cpus, vb_name, ip, ssh_port)
+  machine.vm.box = "generic/rocky9"
+  machine.vm.hostname = hostname
+  machine.vm.network "private_network", ip: ip
+  machine.ssh.host = ssh_port.to_s
+  machine.ssh.guest_port = 22
+  
+  machine.vm.provider "virtualbox" do |vb|
+    vb.memory = memory
+    vb.cpus = cpus
+    vb.name = vb_name
+  end
+
+  # Базовый провижининг для всех машин
+  machine.vm.provision "shell", inline: <<-SHELL, timeout: 600
+    echo "Starting setup for #{hostname}..."
+    dnf update -y --nogpgcheck
+    echo "#{hostname} setup completed!"
+  SHELL
+end

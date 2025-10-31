@@ -1,18 +1,18 @@
 
 # roles/restore/tasks/execute-restore.yml
 ---
-- name: Debug actual execution context
-  shell: |
-    echo "Actual user: $(whoami)"
-    echo "Effective user: $(id -un)"
-    echo "SSH_AUTH_SOCK: $SSH_AUTH_SOCK"
-    echo "HOME: $HOME"
-    ls -la ~/.ssh/ || echo "No .ssh directory"
-  register: context_debug
+# - name: Debug actual execution context
+#   shell: |
+#     echo "Actual user: $(whoami)"
+#     echo "Effective user: $(id -un)"
+#     echo "SSH_AUTH_SOCK: $SSH_AUTH_SOCK"
+#     echo "HOME: $HOME"
+#     ls -la ~/.ssh/ || echo "No .ssh directory"
+#   register: context_debug
 
-- name: Show context debug
-  debug:
-    var: context_debug.stdout_lines
+# - name: Show context debug
+#   debug:
+#     var: context_debug.stdout_lines
 
 - name: Execute restore procedure
   shell: |
@@ -45,18 +45,19 @@
 
 - name: Show debug log
   debug:
-    var: debug_log.stdout
+    # var: debug_log.stdout
+    msg: "{{ debug_log.stdout | replace('\\n', '\n') }}"
 
 - name: Show restore output
   debug:
-    msg: "{{ restore_result.stdout_lines }}"
+    msg: "{{ restore_result.stdout_lines | replace('\\n', '\n') }}"
   tags:
     - restore-execute
     - output
 
 - name: Show restore errors if any
   debug:
-    msg: "{{ restore_result.stderr_lines }}"
+    msg: "{{ restore_result.stderr_lines | replace('\\n', '\n') }}"
   when: restore_result.stderr != ""
   tags:
     - restore-execute

@@ -1,0 +1,10 @@
+FROM nginx:alpine
+
+# Копируем кастомную страницу
+COPY index.html /usr/share/nginx/html/index.html
+
+# Экспонируем порт
+EXPOSE 80
+
+# Команда для запуска nginx
+CMD ["nginx", "-g", "daemon off;"]

@@ -41,17 +41,27 @@ restore_db() {
         return 1
     fi
     
-    # Копируем бэкап на DB сервер
+    # Копируем бэкап на DB-1 сервер
     log "Copying backup to DB server (192.168.56.11)..."
     scp "$db_backup_path" vagrant@192.168.56.11:/tmp/restore_db.sql.gz
+
+    # Копируем бэкап на DB-2 сервер
+    log "Copying backup to DB server (192.168.56.12)..."
+    scp "$db_backup_path" vagrant@192.168.56.12:/tmp/restore_db.sql.gz
     
-    # Выполняем восстановление на DB сервере
+    # Выполняем восстановление на DB-1 сервере
     log "Executing restore on DB server..."
     ssh vagrant@192.168.56.11 "/usr/local/bin/restore-mysql.sh /tmp/restore_db.sql.gz"
+
+    # Выполняем восстановление на DB-2 сервере
+    log "Executing restore on DB server..."
+    ssh vagrant@192.168.56.12 "/usr/local/bin/restore-mysql.sh /tmp/restore_db.sql.gz"
+   
     
     # Очищаем временные файлы
     log "Cleaning up temporary files..."
     ssh vagrant@192.168.56.11 "rm -f /tmp/restore_db.sql.gz"
+    ssh vagrant@192.168.56.12 "rm -f /tmp/restore_db.sql.gz"
     
     log "✅ MySQL database restored"
 }

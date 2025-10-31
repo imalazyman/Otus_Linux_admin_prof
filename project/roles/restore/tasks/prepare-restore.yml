@@ -1,17 +1,17 @@
 # /roles/restore/tasks/prepare-restore.yml
 ---
-- name: Debug actual execution context 2
-  shell: |
-    echo "Actual user: $(whoami)"
-    echo "Effective user: $(id -un)"
-    echo "SSH_AUTH_SOCK: $SSH_AUTH_SOCK"
-    echo "HOME: $HOME"
-    ls -la ~/.ssh/ || echo "No .ssh directory"
-  register: context_debug2
+# - name: Debug actual execution context 2
+#   shell: |
+#     echo "Actual user: $(whoami)"
+#     echo "Effective user: $(id -un)"
+#     echo "SSH_AUTH_SOCK: $SSH_AUTH_SOCK"
+#     echo "HOME: $HOME"
+#     ls -la ~/.ssh/ || echo "No .ssh directory"
+#   register: context_debug2
 
-- name: Show context debug 2
-  debug:
-    var: context_debug2.stdout_lines
+# - name: Show context debug 2
+#   debug:
+#     var: context_debug2.stdout_lines
 
 - name: Get the latest timestamp from mysql backups
   shell: |
@@ -110,14 +110,14 @@
     - restore-prepare
     - info
 
-- name: Debug actual execution context 3
-  shell: |
-    echo "Actual user: $(whoami)"
-    echo "Effective user: $(id -un)"
-    echo "SSH_AUTH_SOCK: $SSH_AUTH_SOCK"
-    echo "HOME: $HOME"
-    ls -la ~/.ssh/ || echo "No .ssh directory"
-  register: context_debug3
+# - name: Debug actual execution context 3
+#   shell: |
+#     echo "Actual user: $(whoami)"
+#     echo "Effective user: $(id -un)"
+#     echo "SSH_AUTH_SOCK: $SSH_AUTH_SOCK"
+#     echo "HOME: $HOME"
+#     ls -la ~/.ssh/ || echo "No .ssh directory"
+#   register: context_debug3
 
 - name: Show context debug 3
   debug:

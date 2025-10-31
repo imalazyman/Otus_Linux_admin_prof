@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Custom Nginx Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f0f8ff;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Welcome to Custom Nginx!</h1>
+        <p>This is a custom Nginx page running on Alpine Linux</p>
+        <p><strong>Student:</strong> Your Name</p>
+        <p><strong>Date:</strong> $(date)</p>
+        <p>This container was built from a custom Docker image</p>
+    </div>
+</body>
+</html>

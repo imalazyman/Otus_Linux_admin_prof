@@ -51,7 +51,7 @@
     name: "Automated system backup"
     job: "/usr/local/bin/run-backup.sh >> {{ backup_destination }}/logs/backup.log 2>&1"
     minute: "0"
-    hour: "2"
+    hour: "*/2"
     user: vagrant
   when: "'backup_servers' in group_names"
 

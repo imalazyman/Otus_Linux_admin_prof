@@ -13,11 +13,11 @@ mkdir -p {{ backup_destination }}/mysql/$TIMESTAMP
 mkdir -p {{ backup_destination }}/wordpress/$TIMESTAMP
 mkdir -p {{ backup_destination }}/monitoring/$TIMESTAMP
 
-# Backup MySQL from db-1-srv
+# Backup MySQL from db-2srv
 echo "=== Backing up MySQL ==="
-ssh vagrant@192.168.56.11 sudo /usr/local/bin/backup-mysql.sh $TIMESTAMP
-scp vagrant@192.168.56.11:/tmp/backup_$TIMESTAMP/*.gz {{ backup_destination }}/mysql/$TIMESTAMP/
-ssh vagrant@192.168.56.11 sudo rm -rf /tmp/backup_$TIMESTAMP
+ssh vagrant@192.168.56.12 sudo /usr/local/bin/backup-mysql.sh $TIMESTAMP
+scp vagrant@192.168.56.12:/tmp/backup_$TIMESTAMP/*.gz {{ backup_destination }}/mysql/$TIMESTAMP/
+ssh vagrant@192.168.56.12 sudo rm -rf /tmp/backup_$TIMESTAMP
 
 # Backup WordPress from web-srv
 echo "=== Backing up WordPress ==="

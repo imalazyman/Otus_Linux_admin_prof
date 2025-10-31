@@ -18,14 +18,6 @@
     - /var/log/mysql
     - /var/run/mysql
 
-# - name: Debug variables for server-id
-#   debug:
-#     msg: |
-#       Hostname: {{ ansible_hostname }}
-#       Inventory hostname: {{ inventory_hostname }} 
-#       Is db-1-srv: {{ ansible_hostname == 'db-1-srv' }}
-#       Server ID: {{ mariadb_server_id | default('NOT_SET') }}
-
 - name: Update MariaDB configuration
   template:
     src: my.cnf.j2

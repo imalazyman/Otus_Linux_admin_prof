@@ -116,6 +116,21 @@
     group: apache
     mode: '0755'
 
+- name: Create WordPress language directory
+  file:
+    path: "{{ wordpress_dir }}/wp-content/languages"
+    state: directory
+    owner: apache
+    group: apache
+    mode: '0755'
+
+- name: Deploy RU language file
+  copy:
+      src: files/wp-6.5.x-ru.mo
+      dest: "{{ wordpress_dir }}/wp-content/languages/wp-6.5.x-ru.mo"
+      owner: apache
+      group: apache
+      mode: '0755'
 
 - name: Configure Apache virtual host
   template:

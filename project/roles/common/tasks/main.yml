@@ -69,12 +69,6 @@
     state: started
     enabled: yes
 
-# - name: Configure firewall for node-exporter <--Перенесено в роль firewall
-#   firewalld:
-#     port: 9100/tcp
-#     permanent: yes
-#     state: enabled
-
 # Настраиваем Selinux в состояние enforcing
 - name: Ensure SELinux is enforcing 
   ansible.builtin.selinux:

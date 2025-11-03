@@ -1,0 +1,189 @@
+---
+- name: Basic user and SSH setup
+  hosts: all
+  become: yes
+  vars:
+    admin_group: admins
+
+  tasks:
+    # 1. Установка необходимых пакетов
+    - name: Install PAM tools
+      package:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - pam
+        - pam-devel
+
+    # 2. Создание группы admins
+    - name: Create admins group
+      group:
+        name: "{{ admin_group }}"
+        state: present
+
+    # 3. Создание пользователя otusadm
+    - name: Create user otusadm
+      user:
+        name: otusadm
+        comment: "Admin User"
+        password: "{{ 'Otus2022!' | password_hash('sha512') }}"
+        groups: "{{ admin_group }}"
+        shell: /bin/bash
+        home: /home/otusadm
+        create_home: yes
+        system: no
+        state: present
+
+    # 4. Создание пользователя otus
+    - name: Create user otus
+      user:
+        name: otus
+        comment: "Regular User"
+        password: "{{ 'Otus2022!' | password_hash('sha512') }}"
+        shell: /bin/bash
+        home: /home/otus
+        create_home: yes
+        system: no
+        state: present
+
+    # 5. Добавление пользователя vagrant в группу admins
+    - name: Add vagrant user to admins group
+      user:
+        name: vagrant
+        groups: "{{ admin_group }}"
+        append: yes
+
+    # 6. НАСТРОЙКА SSH - БЕЗ ДУБЛИРОВАНИЯ
+    # Сначала удаляем все существующие настройки чтобы избежать дублирования
+    - name: Remove existing PasswordAuthentication lines
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PasswordAuthentication'
+        state: absent
+      
+    - name: Remove existing PubkeyAuthentication lines
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PubkeyAuthentication'
+        state: absent
+          
+    - name: Remove existing UsePAM lines
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?UsePAM'
+        state: absent
+        
+    - name: Remove existing ChallengeResponseAuthentication lines
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?ChallengeResponseAuthentication'
+        state: absent
+
+    - name: Set PasswordAuthentication to yes
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        line: 'PasswordAuthentication yes'
+        state: present
+       
+    - name: Set PubkeyAuthentication to yes
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        line: 'PubkeyAuthentication yes'
+        state: present
+
+    - name: Set UsePAM to yes
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        line: 'UsePAM yes'
+        state: present
+
+    - name: Set ChallengeResponseAuthentication to no
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        line: 'ChallengeResponseAuthentication no'
+        state: present
+
+    - name: Remove existing PermitRootLogin lines
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PermitRootLogin'
+        state: absent
+
+    - name: Set PermitRootLogin to no
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        line: 'PermitRootLogin no'
+        state: present
+      notify: restart ssh
+
+    # 6. Разрешаем firewall для SSH
+    - name: Ensure firewall allows SSH
+      firewalld:
+        service: ssh
+        state: enabled
+        permanent: yes
+        immediate: yes
+
+
+
+    # 7. Создание скрипта контроля доступа
+    - name: Create login access control script
+      copy:
+        content: |
+          #!/bin/bash
+          #Первое условие: если день недели суббота или воскресенье
+          if [ $(date +%a) = "Sat" ] || [ $(date +%a) = "Sun" ]; then
+          #Второе условие: входит ли пользователь в группу admin
+          if getent group admin | grep -qw "$PAM_USER"; then
+                  #Если пользователь входит в группу admin, то он может подключиться
+                  exit 0
+                else
+                  #Иначе ошибка (не сможет подключиться)
+                  exit 1
+              fi
+            #Если день не выходной, то подключиться может любой пользователь
+            else
+              exit 0
+          fi
+        dest: /usr/local/bin/pam_access_control.sh
+        owner: root
+        group: root
+        mode: '0755'
+
+    # 8. Настройка PAM для использования скрипта
+    - name: Configure PAM for SSH with access control
+      blockinfile:
+        path: /etc/pam.d/sshd
+        block: |
+          # PAM access control for time restrictions
+          account    required     pam_exec.so /usr/local/bin/pam_access_control.sh
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - Time restrictions"
+        insertafter: '^account.*include.*common-account'
+        state: present
+      notify: restart ssh
+
+    - name: Configure PAM for login with access control
+      blockinfile:
+        path: /etc/pam.d/login
+        block: |
+          # PAM access control for time restrictions
+          account    required     pam_exec.so /usr/local/bin/pam_access_control.sh
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - Time restrictions"
+        insertafter: '^account.*include.*common-account'
+        state: present
+
+    # 9. Показываем текущий день недели для отладки
+    - name: Show current day of week
+      command: "date +%u"
+      register: current_day
+      changed_when: false
+
+    - name: Display current day
+      debug:
+        msg: "Current day of week: {{ current_day.stdout }} (1-5=weekdays, 6-7=weekends)"
+
+  handlers:
+    - name: restart ssh
+      service:
+        name: sshd
+        state: restarted

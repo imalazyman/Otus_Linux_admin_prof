@@ -42,4 +42,8 @@
         end
         end
 
-Настройка выполняется с помощью [ansible](./provisioning/playbook.yml) 
+Настройка выполняется с помощью [ansible playbook](./provisioning/playbook.yml) в котором:
+- создаются пользователи 'otus' и 'otusadm';
+- пользователи 'vagrant' и 'otusadm' добавляются в группу 'admins';
+- разрешается парольная авторизация для ssh;
+- настраивается pam_exec с использованием [скрипта](./provisioning/script.sh) из методички.

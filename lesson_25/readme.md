@@ -1,4 +1,4 @@
-# Домашнее задание к занятию №24 Основы сбора и хранения логов
+# Домашнее задание к занятию №25 Основы сбора и хранения логов
 
 ### Цель домашнего задания: Научится проектировать централизованный сбор логов.
 
@@ -132,3 +132,4 @@
         Nov  4 19:23:20 web nginx-audit[15840]: Audit: type=CONFIG_CHANGE msg=audit(1762282095.110:1708): auid=1000 ses=4 subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 op=add_rule key="nginx_config" list=4 res=1#035AUID="vagrant"
         
         Nov  4 19:23:35 web nginx-audit[15951]: Audit: type=SYSCALL msg=audit(1762284211.905:8440): arch=c000003e syscall=257 success=yes exit=3 a0=ffffff9c a1=7ffcccc908d2 a2=941 a3=1b6 items=2 ppid=15904 pid=15906 auid=1000 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=pts0 ses=5 comm="touch" exe="/usr/bin/touch" subj=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023 key="nginx_config"#035ARCH=x86_64 SYSCALL=openat AUID="vagrant" UID="root" GID="root" EUID="root" SUID="root" FSUID="root" EGID="root" SGID="root" FSGID="root"
+

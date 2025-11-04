@@ -1,0 +1,9 @@
+---
+- name: Configure web and log servers
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Update package cache
+      dnf:
+        update_cache: yes

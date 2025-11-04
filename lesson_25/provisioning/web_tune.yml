@@ -1,0 +1,165 @@
+---
+- name: Configure web server
+  hosts: web
+  become: yes
+  vars:
+    log_server_ip: "192.168.56.15"  # IP адрес сервера для логов
+  
+  tasks:
+    - name: Install nginx
+      dnf:
+        name: nginx
+        state: present
+      notify: restart nginx
+
+    - name: Install auditd for config monitoring
+      dnf:
+        name: audit
+        state: present
+      notify: restart auditd
+
+    - name: Install rsyslog for log managment
+      dnf:
+        name: rsyslog
+        state: present
+      notify: restart rsyslog
+
+    - name: Start nginx
+      systemd:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Start auditd
+      systemd:
+        name: auditd
+        state: started
+        enabled: yes
+
+    - name: Start rsyslog
+      systemd:
+        name: rsyslog
+        state: started
+        enabled: yes
+
+    - name: Configure audit rules for nginx config
+      copy:
+        content: |
+          # Мониторим конфигурационные файлы nginx на запись и изменения атрибутов
+          -w /etc/nginx/nginx.conf -p wa -k nginx_config
+          -w /etc/nginx/conf.d/ -p wa -k nginx_config
+          -w /etc/nginx/default.d/ -p wa -k nginx_config
+        dest: /etc/audit/rules.d/nginx.rules
+      notify: reload audit rules
+
+    - name: Configure rsyslog for loging nginx
+      copy:
+        content: |
+          # Загружаем модуль imfile для мониторинга файлов логов
+          module(load="imfile")
+
+          # Мониторим access лог nginx
+          input(type="imfile" File="/var/log/nginx/access.log" Tag="nginx")
+          # Мониторим error лог nginx
+          input(type="imfile" File="/var/log/nginx/error.log" Tag="nginx")
+
+          # Пересылаем все логи nginx на удаленный сервер
+          if $syslogtag startswith 'nginx' then @{{ log_server_ip }}:514
+          if $syslogtag startswith 'nginx' then stop
+
+          # Пересылаем логи аудита на удаленный сервер
+          if $programname == 'nginx-audit' then @{{ log_server_ip }}:514
+          if $programname == 'nginx-audit' then stop
+
+          # Локальное хранение критичных сообщений (и локально и удаленно)
+          *.crit /var/log/critical.log
+
+          # Пересылка всех критичных сообщений на удаленный сервер
+          *.crit @{{ log_server_ip }}:514
+        dest: /etc/rsyslog.d/60-nginx.conf
+      notify: restart rsyslog
+
+    - name: Configure nginx logs
+      copy:
+        content: |
+          # Конфигурация логирования nginx
+          access_log /var/log/nginx/access.log;
+          error_log /var/log/nginx/error.log warn;
+        dest: /etc/nginx/conf.d/logging.conf
+      notify: restart nginx
+
+    - name: COnfigure local loging
+      file:
+        path: /var/log/critical.log
+        state: touch
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Script for forwarding audit log
+      copy:
+        content: |
+          #!/bin/bash
+          # Скрипт для пересылки событий аудита в syslog
+          echo "Audit forwarder started at $(date)" | logger -t audit-start
+
+          while true; do
+              # Проверяем новые события nginx_config
+              if NEW_EVENT=$(sudo tail -n 10 /var/log/audit/audit.log | grep "key=\"nginx_config\"" | tail -1); then
+                  # Используем daemon facility который работает
+                  echo "AUDIT: nginx config change detected" | logger -t nginx-audit -p daemon.info
+                  echo "Event forwarded successfully" | logger -t audit-status
+              fi
+              sleep 5
+          done
+        dest: /usr/local/bin/audit-forwarder.sh
+        mode: '0755'
+
+    - name: Create systemd service for forwarding audit log
+      copy:
+        content: |
+          [Unit]
+          Description=Audit Log Forwarder
+          After=auditd.service
+
+          [Service]
+          Type=simple
+          ExecStart=/usr/local/bin/audit-forwarder.sh
+          Restart=always
+          RestartSec=10
+          User=root
+
+          [Install]
+          WantedBy=multi-user.target
+        dest: /etc/systemd/system/audit-forwarder.service
+
+    - name: Start Audit Log Forwarder
+      systemd:
+        name: audit-forwarder
+        state: started
+        enabled: yes
+
+  handlers:
+    - name: restart rsyslog
+      systemd:
+        name: rsyslog
+        state: restarted
+
+    - name: restart nginx
+      systemd:
+        name: nginx
+        state: restarted
+
+    - name: restart auditd
+      systemd:
+        name: auditd
+        state: restarted
+
+    - name: reload audit rules
+      command: auditctl -R /etc/audit/rules.d/nginx.rules
+      listen: "reload audit rules"
+
+    - name: reload firewall
+      systemd:
+        name: firewalld
+        state: reloaded

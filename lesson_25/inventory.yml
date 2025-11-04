@@ -1,0 +1,10 @@
+# inventory.yml
+all:
+  vars:
+    ansible_user: vagrant
+  children:
+    hosts:
+      web:
+        ansible_host: 192.168.56.10
+      log:
+        ansible_host: 192.168.56.15  

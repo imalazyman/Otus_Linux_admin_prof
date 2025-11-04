@@ -1,0 +1,77 @@
+---
+- name: Configure log server
+  hosts: log
+  become: yes
+  
+  tasks:
+    - name: Install rsyslog
+      dnf:
+        name: rsyslog
+        state: present
+
+    - name: Configure rsyslog as remote log server
+      copy:
+        content: |
+          module(load="imudp")
+          input(type="imudp" port="514")
+          
+          module(load="imtcp")
+          input(type="imtcp" port="514")
+          
+          # Create separate directories for each host
+          $template RemoteLogs,"/var/log/remote/%HOSTNAME%/%PROGRAMNAME%.log"
+          *.* ?RemoteLogs
+          
+          # Critical logs to separate directory - FIXED
+          $template CriticalLogs,"/var/log/remote/critical/%HOSTNAME%-%PROGRAMNAME%.log"
+          *.crit ?CriticalLogs
+          & ~
+        dest: /etc/rsyslog.d/99-remote.conf
+      notify: restart rsyslog
+
+    - name: Create remote logs directory
+      file:
+        path: /var/log/remote
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Create critical logs directory
+      file:
+        path: /var/log/remote/critical
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Start and enable rsyslog
+      systemd:
+        name: rsyslog
+        state: started
+        enabled: yes
+
+    - name: Open firewall port for rsyslog
+      firewalld:
+        port: 514/tcp
+        permanent: yes
+        state: enabled
+      notify: reload firewall
+
+    - name: Open firewall port for rsyslog UDP
+      firewalld:
+        port: 514/udp
+        permanent: yes
+        state: enabled
+      notify: reload firewall
+
+  handlers:
+    - name: restart rsyslog
+      systemd:
+        name: rsyslog
+        state: restarted
+
+    - name: reload firewall
+      systemd:
+        name: firewalld
+        state: reloaded

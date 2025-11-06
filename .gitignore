@@ -23,3 +23,26 @@ rad.json
 *.flf
 #Test results file
 TestResults.xml
+
+# SSH keys - protect all private keys in the project
+**/ssh-keys/
+*.key
+*.pem
+*_ed25519
+*_rsa
+
+# Vagrant
+**/.vagrant/
+*.vdi
+*.vmdk
+
+# Logs
+*.log
+**/logs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Back-files
+*.bak

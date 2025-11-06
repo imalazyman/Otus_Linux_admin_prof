@@ -1,0 +1,33 @@
+#provisioning/common.yml
+---
+- name: Configure all servers
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Update package cache
+      dnf:
+        update_cache: yes
+
+    - name: Install EPEL repository
+      dnf:
+        name: epel-release
+        state: present
+
+    - name: Install borgbackup
+      dnf:
+        name: borgbackup
+        state: present
+
+    - name: Create borg user
+      user:
+        name: borg
+        system: yes
+        create_home: yes
+        shell: /bin/bash
+    
+    - name: Set password for vagrant user
+      user:
+        name: vagrant
+        password: "{{ 'vagrant' | password_hash('sha512') }}"
+        update_password: always

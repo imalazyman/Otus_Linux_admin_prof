@@ -1,0 +1,124 @@
+---
+- name: Configure client server
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Copy SSH keys using shell commands
+      shell: |
+        mkdir -p /home/vagrant/.ssh
+        cp /vagrant/ssh-keys/id_ed25519 /home/vagrant/.ssh/borg_key
+        cp /vagrant/ssh-keys/id_ed25519.pub /home/vagrant/.ssh/borg_key.pub
+        chmod 600 /home/vagrant/.ssh/borg_key
+        chmod 644 /home/vagrant/.ssh/borg_key.pub
+        chown -R vagrant:vagrant /home/vagrant/.ssh/
+      when: node_name == "client"
+
+    - name: Check if borg repository already exists
+      become_user: vagrant
+      command: >
+        borg info borg@192.168.56.160:/var/backup/
+      environment:
+        BORG_PASSPHRASE: "Otus1234"
+        BORG_RSH: "ssh -i /home/vagrant/.ssh/borg_key -o StrictHostKeyChecking=no"
+      register: borg_check
+      ignore_errors: yes
+      changed_when: false
+      when: node_name == "client"
+
+    - name: Initialize borg repository only if not exists
+      become_user: vagrant
+      command: >
+        borg init --encryption=repokey borg@192.168.56.160:/var/backup/
+      environment:
+        BORG_PASSPHRASE: "Otus1234"
+        BORG_RSH: "ssh -i /home/vagrant/.ssh/borg_key -o StrictHostKeyChecking=no"
+      when: 
+        - node_name == "client"
+        - borg_check.rc != 0
+
+    - name: Skip initialization if repository exists
+      debug:
+        msg: "Borg repository already exists, skipping initialization"
+      when: 
+        - node_name == "client"
+        - borg_check.rc == 0
+
+    - name: Verify borg repository access
+      become_user: vagrant
+      command: >
+        borg list borg@192.168.56.160:/var/backup/
+      environment:
+        BORG_PASSPHRASE: "Otus1234"
+        BORG_RSH: "ssh -i /home/vagrant/.ssh/borg_key -o StrictHostKeyChecking=no"
+      register: borg_verify
+      changed_when: false
+      when: node_name == "client"
+
+    - name: Test backup creation
+      become_user: vagrant
+      command: >
+        borg create --stats --list borg@192.168.56.160:/var/backup/::"etc-test-{{ ansible_date_time.epoch }}"
+        /etc
+      environment:
+        BORG_PASSPHRASE: "Otus1234"
+        BORG_RSH: "ssh -i /home/vagrant/.ssh/borg_key -o StrictHostKeyChecking=no"
+      register: backup_test
+      failed_when: backup_test.rc > 1
+      when: node_name == "client"
+
+    # Логирование и службы
+    - name: Create log directory for borg backups
+      file:
+        path: /var/log/borg-backup
+        state: directory
+        owner: vagrant
+        group: vagrant
+        mode: '0755'
+      when: node_name == "client"
+
+    - name: Install borg-backup service from template
+      template:
+        src: "borg-backup.service.j2"
+        dest: /etc/systemd/system/borg-backup.service
+        owner: root
+        group: root
+        mode: '0644'
+      when: node_name == "client"
+
+    - name: Install borg-backup timer from template
+      template:
+        src: "borg-backup.timer.j2"
+        dest: /etc/systemd/system/borg-backup.timer
+        owner: root
+        group: root
+        mode: '0644'
+      when: node_name == "client"
+
+    - name: Install logrotate configuration from template
+      template:
+        src: "borg-backup.j2"
+        dest: /etc/logrotate.d/borg-backup
+        owner: root
+        group: root
+        mode: '0644'
+      when: node_name == "client"
+
+    - name: Enable and start borg-backup timer
+      systemd:
+        name: borg-backup.timer
+        enabled: yes
+        state: started
+        daemon_reload: yes
+      when: node_name == "client"
+
+    - name: Final success verification
+      debug:
+        msg: |
+          * BorgBackup успешно настроен!
+          * Репозиторий: borg@192.168.56.160:/var/backup/
+          * SSH ключи настроены
+          * Логирование настроено (syslog + файл с ротацией)
+          * Автоматические бэкапы включены (каждые 5 минут)
+          * Тестовый архив создан
+      when: node_name == "client"

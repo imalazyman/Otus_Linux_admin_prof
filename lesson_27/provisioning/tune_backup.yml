@@ -1,0 +1,102 @@
+---
+- name: Configure backup server
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Create borg user
+      user:
+        name: borg
+        system: yes
+        create_home: yes
+        shell: /bin/bash
+      when: node_name == "backup"
+
+    - name: Find 2GB backup disk
+      shell: |
+        for disk in /dev/sd*; do
+          if [ -b "$disk" ] && [ "$(blockdev --getsize64 "$disk")" -eq 2147483648 ]; then
+            echo "$disk"
+            break
+          fi
+        done
+      register: found_disk
+      changed_when: false
+      when: node_name == "backup"
+
+    - name: Setup backup disk using UUID
+      block:
+        - name: Create filesystem on backup disk
+          filesystem:
+            fstype: ext4
+            dev: "{{ found_disk.stdout }}"
+            force: yes
+
+        - name: Get UUID of the backup disk
+          shell: blkid -s UUID -o value "{{ found_disk.stdout }}"
+          register: disk_uuid
+
+        - name: Create mount point
+          file:
+            path: /var/backup
+            state: directory
+            owner: borg
+            group: borg
+
+        - name: Add to fstab using UUID
+          lineinfile:
+            path: /etc/fstab
+            line: "UUID={{ disk_uuid.stdout }} /var/backup ext4 defaults 0 0"
+            state: present
+
+        - name: Mount backup disk
+          mount:
+            path: /var/backup
+            src: "UUID={{ disk_uuid.stdout }}"
+            fstype: ext4
+            state: mounted
+      when: 
+        - node_name == "backup"
+        - found_disk.stdout != ""
+
+    - name: Ensure backup directory exists (fallback)
+      file:
+        path: /var/backup
+        state: directory
+        owner: borg
+        group: borg
+        mode: '0755'
+      when: 
+        - node_name == "backup"
+        - found_disk.stdout == ""
+
+    - name: Cleanup existing borg repository (if corrupted)
+      shell: |
+        rm -rf /var/backup/*
+      when: node_name == "backup"
+
+    - name: Set correct permissions on backup directory for borg user
+      file:
+        path: /var/backup
+        owner: borg
+        group: borg
+        mode: '0755'
+        state: directory
+      when: node_name == "backup"
+
+    - name: Create .ssh directory for borg user
+      file:
+        path: /home/borg/.ssh
+        state: directory
+        owner: borg
+        group: borg
+        mode: '0700'
+      when: node_name == "backup"
+
+    - name: Add client public key to borg authorized_keys using shell
+      shell: |
+        mkdir -p /home/borg/.ssh
+        cat /vagrant/ssh-keys/id_ed25519.pub >> /home/borg/.ssh/authorized_keys
+        chmod 600 /home/borg/.ssh/authorized_keys
+        chown borg:borg /home/borg/.ssh/authorized_keys
+      when: node_name == "backup"

@@ -1,0 +1,25 @@
+---
+all:
+  children:
+    backup:
+      hosts:
+        192.168.56.160:
+          node_name: backup
+          node_ip: 192.168.56.160
+          
+    client:
+      hosts:
+        192.168.56.150:
+          node_name: client
+          node_ip: 192.168.56.150
+          
+  vars:
+    ansible_become: true
+    borg_backup_server: 192.168.56.160
+    borg_backup_path: /var/backup
+    borg_user: borg
+    borg_passphrase: "Otus1234"
+    backup_target: "/etc"
+    borg_keep_daily: 90
+    borg_keep_monthly: 12
+    borg_keep_yearly: 1

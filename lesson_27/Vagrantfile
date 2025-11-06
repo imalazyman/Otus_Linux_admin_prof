@@ -1,0 +1,49 @@
+Vagrant.configure("2") do |config|
+  config.vm.box = "generic/rocky9"
+  config.vm.box_check_update = false
+  config.vbguest.no_install = true
+  config.vm.provider :virtualbox do |v|
+    v.memory = 1024
+    v.cpus = 2
+  end
+
+  boxes = [
+    { 
+      :name => "backup",
+      :ip => "192.168.56.160"
+    },
+    { 
+      :name => "client",
+      :ip => "192.168.56.150"
+    }
+  ]
+
+  # Provision each of the VMs.
+  boxes.each do |opts|
+    config.vm.define opts[:name] do |vm_config|
+      vm_config.vm.hostname = opts[:name]
+      vm_config.vm.network "private_network", ip: opts[:ip]
+      
+      # Общая папка с ключами
+      vm_config.vm.synced_folder "ssh-keys/", "/vagrant/ssh-keys"
+      
+      if opts[:name] == "backup"
+        vm_config.vm.disk :disk, 
+          size: "2GB", 
+          name: "backup-disk",
+          primary: false
+      end
+      
+      # Ansible provision
+      vm_config.vm.provision "ansible" do |ansible|
+        ansible.playbook = "provisioning/playbook.yml"
+        ansible.extra_vars = {
+          node_name: opts[:name],
+          node_ip: opts[:ip],
+        }
+        ansible.become = true
+        ansible.verbose = "v"
+      end
+    end
+  end
+end
